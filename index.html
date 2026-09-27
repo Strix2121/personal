@@ -102,7 +102,7 @@
       <h2 id="netProfit" class="disp text-[42px] font-bold leading-none mt-1" style="color:var(--brand2)">0 ل.س</h2>
       <p id="netProfitUSD" class="text-[12px] mt-1" style="color:var(--muted)">$0.00</p>
       <div class="flex items-center gap-2 mt-4 text-[11px]" style="color:var(--muted)">
-        <span>سعر صرف الدولار:</span>
+        <span>سعر صرف الدولار العام:</span>
         <input type="number" id="exchangeRateInput" onchange="saveRate();renderAll()" value="15000" class="w-24 rounded-lg px-2 py-1 text-center font-bold outline-none" style="background:var(--chip);border:1px solid var(--line)">
         <span>ل.س</span>
       </div>
@@ -223,6 +223,7 @@
       <div>
         <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">سعر صرف الدولار وقت هذه الحركة (ل.س)</label>
         <input type="number" step="1" id="entryRate" placeholder="15000" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)">
+      </div>
       <div>
         <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">ملاحظة (اختياري)</label>
         <input type="text" id="entryNote" placeholder="أي تفاصيل إضافية تريد تسجيلها" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)">
