@@ -25,7 +25,7 @@
     --brand:#3E7A70; --brand2:#4B948A; --leaf:#6BC1A2; --leaf-bg:#20302A;
     --soil:#E0785D; --soil-bg:#33241E; --chip:#252A20;
   }
-  html,body{background:var(--bg);color:var(--ink);}
+  html,body{background:var(--bg);color:var(--ink);direction:rtl;text-align:right;}
   *{box-sizing:border-box;}
   body{font-family:'Cairo',sans-serif; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
   .disp{font-family:'Markazi Text',serif;}
@@ -34,7 +34,7 @@
   .sheet{transition:transform .28s cubic-bezier(.32,.72,0,1);}
   .tabpane{display:none;} .tabpane.active{display:block;}
   .navbtn.active{color:var(--brand2);}
-  input,select{color:var(--ink);}
+  input,select{color:var(--ink);direction:rtl;}
   input::placeholder{color:var(--muted);}
   .shake{animation:shake .3s;}
   @keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
@@ -74,7 +74,7 @@
       </div>
       <div>
         <h1 class="text-[15px] font-bold text-white leading-tight">مصروفي اليومي</h1>
-        <p id="syncStatus" class="text-[11px] leading-tight" style="color:#BFE0C7">جارٍ الاتصال بالسحابة…</p>
+        <p id="syncStatus" class="text-[11px] leading-tight" style="color:#BFE0C7">جاهز للمزامنة المحليّة</p>
       </div>
     </div>
     <div class="flex items-center gap-2">
@@ -263,17 +263,27 @@
 
 <script>
 let WEB_APP_URL = localStorage.getItem('pf_webapp_url') || "";
-let entries = [];
+let entries = JSON.parse(localStorage.getItem('pf_entries_sync') || '[]');
 let wallets = JSON.parse(localStorage.getItem('pf_wallets') || '["نقدي","بطاقة بنكية"]');
 let barChartInstance = null, pieChartInstance = null;
 let listShown = 30;
 const LIST_PAGE = 30;
-const FETCH_LIMIT = 1500;
 let periodMode = 'all';
 let selectedMonth = '';
 let selectedYear = '';
 const expenseCats = ['بقالة ومواد غذائية','مطاعم وكافيهات','مواصلات ووقود السيارة','فواتير ومرافق (كهرباء وماء وإنترنت)','سكن وإيجار','صحة وعلاج','تعليم','تسوق وملابس','ترفيه وخروجات','أقساط والتزامات','مصاريف أخرى'];
 const revenueCats = ['راتب','عمل حر / مشروع خاص','هدايا ومساعدات','عوائد استثمار','دخل آخر'];
+
+function alertCustom(m){ alert(m); }
+
+function saveRate(){
+  const val = document.getElementById('exchangeRateInput').value || '15000';
+  localStorage.setItem('pf_rate', val);
+}
+function loadRate(){
+  const saved = localStorage.getItem('pf_rate');
+  if(saved) document.getElementById('exchangeRateInput').value = saved;
+}
 
 function inPeriod(e){
   if(periodMode==='all') return true;
@@ -452,219 +462,279 @@ function renderWallets(){
           <button onclick="renameWallet('${w}')" class="w-8 h-8 flex items-center justify-center rounded-lg" style="background:var(--chip)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand2)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
           </button>
-          <button onclick="removeWallet('${w}')" class="w-8 h-8 flex items-center justify-center rounded-lg" style="background:var(--chip)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--soil)" stroke-width="2"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"/></svg>
+          <button onclick="removeWallet('${w}')" class="w-8 h-8 flex items-center justify-center rounded-lg" style="background:var(--soil-bg)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--soil)" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           </button>
         </div>
       </div>
-      <p class="text-[11px] mt-1" style="color:var(--muted)">الرصيد: <b style="color:${net>=0?'var(--leaf)':'var(--soil)'}">${fmt(net)} ل.س</b> ($${usdVal(netUSD)})</p>
+      <div class="grid grid-cols-3 gap-2 mt-3 pt-3" style="border-top:1px solid var(--line)">
+        <div><p class="text-[10px]" style="color:var(--muted)">الدخل</p><p class="text-[12px] font-bold" style="color:var(--leaf)">${fmt(rev)} ل.س</p></div>
+        <div><p class="text-[10px]" style="color:var(--muted)">المصروف</p><p class="text-[12px] font-bold" style="color:var(--soil)">${fmt(exp)} ل.س</p></div>
+        <div><p class="text-[10px]" style="color:var(--muted)">الصافي</p><p class="text-[12px] font-bold" style="color:var(--brand2)">${fmt(net)} ل.س</p><p class="text-[10px]" style="color:var(--muted)">$${usdVal(netUSD)}</p></div>
+      </div>
     </div>`;
   }).join('');
 }
 
-function onFiltersChanged(){ listShown = LIST_PAGE; renderAll(); }
-function loadMore(){ listShown += LIST_PAGE; renderAll(); }
+function addEntry(e){
+  e.preventDefault();
+  const idx = document.getElementById('entryIndex').value;
+  const item = {
+    id: document.getElementById('entryId').value || 'id_' + Date.now(),
+    type: document.getElementById('entryType').value,
+    category: document.getElementById('entryCategory').value,
+    amount: Number(document.getElementById('entryAmount').value),
+    date: document.getElementById('entryDate').value,
+    wallet: document.getElementById('entryWallet').value,
+    rate: Number(document.getElementById('entryRate').value)||(Number(document.getElementById('exchangeRateInput').value)||15000),
+    note: document.getElementById('entryNote').value || '-'
+  };
+
+  if(idx !== ''){
+    entries[Number(idx)] = item;
+  } else {
+    entries.unshift(item);
+  }
+
+  localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
+  closeAddSheet();
+  renderAll();
+  syncWithSheet('save', item);
+}
+
+function deleteEntry(){
+  const idx = document.getElementById('entryIndex').value;
+  if(idx === '') return;
+  const item = entries[Number(idx)];
+  if(confirm('هل أنت تأكد من حذف هذه الحركة؟')){
+    entries.splice(Number(idx), 1);
+    localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
+    closeAddSheet();
+    renderAll();
+    syncWithSheet('delete', item);
+  }
+}
+
+function onFiltersChanged(){
+  listShown = LIST_PAGE;
+  renderList();
+}
+
+function loadMore(){
+  listShown += LIST_PAGE;
+  renderList();
+}
+
+function renderDashboard(){
+  document.getElementById('periodLabel').innerText = periodLabel();
+  const rate = parseFloat(document.getElementById('exchangeRateInput').value) || 15000;
+  let totalRev = 0, totalExp = 0, totalRevUSD = 0, totalExpUSD = 0;
+  
+  const currentList = periodEntries();
+  const catTotals = {};
+
+  currentList.forEach(e => {
+    const val = Number(e.amount) || 0;
+    const r = Number(e.rate) || rate;
+    const isRev = e.type === 'revenue' || e.type === 'دخل';
+    
+    if(isRev){
+      totalRev += val;
+      totalRevUSD += val / r;
+    } else {
+      totalExp += val;
+      totalExpUSD += val / r;
+      catTotals[e.category] = (catTotals[e.category] || 0) + val;
+    }
+  });
+
+  const net = totalRev - totalExp;
+  const netUSD = totalRevUSD - totalExpUSD;
+
+  document.getElementById('netProfit').innerText = fmt(net) + ' ل.س';
+  document.getElementById('netProfitUSD').innerText = '$' + usdVal(netUSD);
+  document.getElementById('totalRevenue').innerText = fmt(totalRev) + ' ل.س';
+  document.getElementById('totalRevenueUSD').innerText = '$' + usdVal(totalRevUSD);
+  document.getElementById('totalExpenses').innerText = fmt(totalExp) + ' ل.س';
+  document.getElementById('totalExpensesUSD').innerText = '$' + usdVal(totalExpUSD);
+
+  renderCharts(totalRev, totalExp, catTotals);
+}
+
+function renderCharts(rev, exp, catTotals){
+  const ctxBar = document.getElementById('barChart').getContext('2d');
+  if(barChartInstance) barChartInstance.destroy();
+  barChartInstance = new Chart(ctxBar, {
+    type: 'bar',
+    data: {
+      labels: ['الدخل', 'المصروف'],
+      datasets: [{
+        data: [rev, exp],
+        backgroundColor: ['#3E8E73', '#C0563F'],
+        borderRadius: 8
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+
+  const ctxPie = document.getElementById('pieChart').getContext('2d');
+  if(pieChartInstance) pieChartInstance.destroy();
+  
+  const pieLabels = Object.keys(catTotals);
+  const pieData = Object.values(catTotals);
+  
+  pieChartInstance = new Chart(ctxPie, {
+    type: 'doughnut',
+    data: {
+      labels: pieLabels.length ? pieLabels : ['لا يوجد مصروفات'],
+      datasets: [{
+        data: pieData.length ? pieData : [1],
+        backgroundColor: pieData.length ? ['#3E8E73', '#C0563F', '#20423D', '#2E5F57', '#E0785D', '#6BC1A2', '#C0563F'] : ['#DDE2D8']
+      }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+function renderList(){
+  const search = document.getElementById('searchBox').value.toLowerCase();
+  const filterType = document.getElementById('filterType').value;
+  const filterWallet = document.getElementById('filterWallet').value;
+  const rate = parseFloat(document.getElementById('exchangeRateInput').value) || 15000;
+
+  let filtered = periodEntries().filter(e => {
+    const isRev = e.type === 'revenue' || e.type === 'دخل';
+    if(filterType === 'expense' && isRev) return false;
+    if(filterType === 'revenue' && !isRev) return false;
+    if(filterWallet && e.wallet !== filterWallet) return false;
+    if(search){
+      const text = (e.category + ' ' + (e.note || '')).toLowerCase();
+      if(!text.includes(search)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('entryCount').innerText = filtered.length + ' حركة';
+  
+  const container = document.getElementById('entriesList');
+  const slice = filtered.slice(0, listShown);
+
+  if(slice.length === 0){
+    container.innerHTML = `<p class="text-[12px] text-center py-6" style="color:var(--muted)">لا توجد حركات مطابقة</p>`;
+    document.getElementById('loadMoreBtn').classList.add('hidden');
+    return;
+  }
+
+  container.innerHTML = slice.map(e => {
+    const isRev = e.type === 'revenue' || e.type === 'دخل';
+    const r = Number(e.rate) || rate;
+    return `<div onclick="openEditSheet(${e._idx})" class="rounded-2xl p-3.5 flex items-center justify-between cursor-pointer" style="background:var(--surface);border:1px solid var(--line)">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-[13px]" style="background:${isRev?'var(--leaf-bg)':'var(--soil-bg)'};color:${isRev?'var(--leaf)':'var(--soil)'}">
+          ${isRev?'↑':'↓'}
+        </div>
+        <div>
+          <p class="font-bold text-[13px]">${e.category}</p>
+          <p class="text-[10px]" style="color:var(--muted)">${e.date} ${e.wallet ? '· ' + e.wallet : ''} ${e.note && e.note !== '-' ? '· ' + e.note : ''}</p>
+        </div>
+      </div>
+      <div class="text-left">
+        <p class="font-bold text-[13px]" style="color:${isRev?'var(--leaf)':'var(--soil)'}">${isRev?'+':'-'}${fmt(e.amount)} ل.س</p>
+        <p class="text-[10px]" style="color:var(--muted)">$${usd(e.amount, r)}</p>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('loadMoreBtn').classList.toggle('hidden', filtered.length <= listShown);
+}
 
 function renderAll(){
   refreshYearOptions();
-  document.getElementById('periodLabel').innerText = periodLabel();
-  const rate = parseFloat(document.getElementById('exchangeRateInput').value)||15000;
-  const pList = periodEntries();
-  let totalRev=0, totalExp=0, totalRevUSD=0, totalExpUSD=0; const catTotals={}; expenseCats.forEach(c=>catTotals[c]=0);
-  pList.forEach(it=>{
-    const isRev = it.type==='revenue'||it.type==='دخل'; const val = Number(it.amount)||0;
-    const r = Number(it.rate)||rate;
-    if(isRev){ totalRev+=val; totalRevUSD+=val/r; } else { totalExp+=val; totalExpUSD+=val/r; catTotals[it.category]=(catTotals[it.category]||0)+val; }
-  });
-  const net = totalRev-totalExp;
-  const netUSD = totalRevUSD-totalExpUSD;
-  document.getElementById('totalRevenue').innerText = fmt(totalRev)+' ل.س';
-  document.getElementById('totalRevenueUSD').innerText = '$'+usdVal(totalRevUSD);
-  document.getElementById('totalExpenses').innerText = fmt(totalExp)+' ل.س';
-  document.getElementById('totalExpensesUSD').innerText = '$'+usdVal(totalExpUSD);
-  document.getElementById('netProfit').innerText = fmt(net)+' ل.س';
-  document.getElementById('netProfitUSD').innerText = '$'+usdVal(netUSD);
-
-  const search = (document.getElementById('searchBox').value||'').trim().toLowerCase();
-  const fType = document.getElementById('filterType').value;
-  const fWallet = document.getElementById('filterWallet').value;
-  let filtered = [...pList].reverse().filter(it=>{
-    const isRev = it.type==='revenue'||it.type==='دخل';
-    if(fType==='expense' && isRev) return false;
-    if(fType==='revenue' && !isRev) return false;
-    if(fWallet && !walletMatches(it,fWallet)) return false;
-    if(search && !((it.category||'').toLowerCase().includes(search) || (it.note||'').toLowerCase().includes(search))) return false;
-    return true;
-  });
-  window._lastFiltered = filtered;
-  document.getElementById('entryCount').innerText = filtered.length + ' حركة من أصل ' + entries.length;
-  const list = document.getElementById('entriesList');
-  const visible = filtered.slice(0, listShown);
-  if(visible.length===0){
-    list.innerHTML = `<p class="text-[12px] text-center py-8" style="color:var(--muted)">لا توجد حركات مطابقة</p>`;
-  } else {
-    list.innerHTML = visible.map(it=>{
-      const isRev = it.type==='revenue'||it.type==='دخل'; const val = Number(it.amount)||0;
-      return `<div onclick="openEditSheet(${it._idx})" class="rounded-2xl p-3.5 flex items-center justify-between cursor-pointer active:opacity-70" style="background:var(--surface);border:1px solid var(--line)">
-        <div class="flex items-center gap-3">
-          <div class="w-2 h-9 rounded-full" style="background:${isRev?'var(--leaf)':'var(--soil)'}"></div>
-          <div>
-            <p class="font-bold text-[13px]">${it.category}</p>
-            <p class="text-[11px]" style="color:var(--muted)">${it.date||''}${it.wallet?' · '+it.wallet:''}${it.note && it.note!=='-' ? ' · '+it.note : ''}</p>
-          </div>
-        </div>
-        <div class="text-left">
-          <p class="font-bold text-[13px]" style="color:${isRev?'var(--leaf)':'var(--soil)'}">${isRev?'+':'-'}${fmt(val)}</p>
-          <p class="text-[10px]" style="color:var(--muted)">$${usdVal(val/(Number(it.rate)||rate))}</p>
-        </div>
-      </div>`;
-    }).join('');
-  }
-  document.getElementById('loadMoreBtn').classList.toggle('hidden', filtered.length<=listShown);
-  updateBarChart(totalRev, totalExp);
-  updatePieChart(catTotals);
-  if(document.getElementById('tab-wallets').classList.contains('active')) renderWallets();
+  renderDashboard();
+  renderList();
+  renderWallets();
 }
 
-function updateBarChart(rev, exp){
-  const ctx = document.getElementById('barChart').getContext('2d');
-  if(barChartInstance){ barChartInstance.data.datasets[0].data=[rev,exp]; barChartInstance.update(); return; }
-  barChartInstance = new Chart(ctx, { type:'bar', data:{ labels:['الدخل','المصروف'], datasets:[{data:[rev,exp], backgroundColor:['#3E8E73','#C0563F'], borderRadius:10}] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, grid:{color:'rgba(120,120,120,.15)'}}, x:{grid:{display:false}}} } });
+function exportToCSV(){
+  let csv = 'التاريخ,النوع,التصنيف,المبلغ,المحفظة,سعر الصرف,الملاحظة\n';
+  entries.forEach(e => {
+    csv += `"${e.date}","${e.type}","${e.category}",${e.amount},"${e.wallet || ''}",${e.rate || ''},"${e.note || ''}"\n`;
+  });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `مصروفي_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
 }
-function updatePieChart(catTotals){
-  const ctx = document.getElementById('pieChart').getContext('2d');
-  const labels = Object.keys(catTotals).filter(k=>catTotals[k]>0);
-  const data = labels.map(k=>catTotals[k]);
-  if(pieChartInstance){ pieChartInstance.data.labels=labels; pieChartInstance.data.datasets[0].data=data; pieChartInstance.update(); return; }
-  pieChartInstance = new Chart(ctx, { type:'doughnut', data:{ labels, datasets:[{data, backgroundColor:['#3E8E73','#C0563F','#C9A227','#7A8C68','#8E5B3F','#4E7A8C','#9C6B9E','#5D7EBE','#B4884C']}] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom', labels:{boxWidth:10, font:{size:10}}}} } });
+
+function saveWebAppUrl(){
+  const url = document.getElementById('webAppUrlInput').value.trim();
+  localStorage.setItem('pf_webapp_url', url);
+  WEB_APP_URL = url;
+  logMessage('تم حفظ رابط السحابة جديد.');
+  loadDataFromSheet();
 }
 
 function toggleDebugPanel(){
-  const p = document.getElementById('debugPanel'), t=document.getElementById('debugToggleBtnText');
-  p.classList.toggle('hidden'); t.innerText = p.classList.contains('hidden') ? 'إظهار' : 'إخفاء';
+  const p = document.getElementById('debugPanel');
+  const b = document.getElementById('debugToggleBtnText');
+  const hidden = p.classList.toggle('hidden');
+  b.innerText = hidden ? 'إظهار' : 'إخفاء';
 }
-function saveRate(){ localStorage.setItem('pf_rate', document.getElementById('exchangeRateInput').value); }
+
+function syncWithSheet(action, payload){
+  if(!WEB_APP_URL){
+    document.getElementById('syncStatus').innerText = 'وضع محلي فقط';
+    return;
+  }
+  document.getElementById('syncStatus').innerText = 'جارٍ المزامنة...';
+  logMessage(`جاري تنفيذ عملية ${action}...`);
+
+  fetch(WEB_APP_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: action, data: payload })
+  }).then(() => {
+    document.getElementById('syncStatus').innerText = 'تمت المزامنة';
+    logMessage('تم إرسال الطلب بنجاح إلى Google Sheets.');
+  }).catch(err => {
+    document.getElementById('syncStatus').innerText = 'خطأ في المزامنة';
+    logMessage('خطأ في الاتصال: ' + err.message);
+  });
+}
 
 function loadDataFromSheet(){
-  if(!WEB_APP_URL){ document.getElementById('syncStatus').innerText='لم يتم إدخال رابط Google Sheets بعد'; return; }
-  logMessage('جلب البيانات من Google Sheets…');
-  const old = document.getElementById('jsonpScript'); if(old) old.remove();
-  window.handleSheetData = function(res){
-    if(res && res.result==='success' && Array.isArray(res.data)){
-      logMessage('نجح جلب '+res.data.length+' صف.');
-      document.getElementById('syncStatus').innerText = 'متصل بنجاح مع Google Sheets';
-      entries = res.data;
-      localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
-      renderAll();
-    } else {
-      document.getElementById('syncStatus').innerText = 'الجدول فارغ أو تعذّر الجلب';
-      logMessage('الجدول فارغ أو الاستجابة غير متوفرة.');
-    }
-  };
-  const s = document.createElement('script');
-  s.id='jsonpScript';
-  s.src = `${WEB_APP_URL}?callback=handleSheetData&limit=${FETCH_LIMIT}&t=${Date.now()}`;
-  s.onerror = function(){ document.getElementById('syncStatus').innerText='تعذّر الاتصال بالسحابة'; logMessage('فشل الجلب (تأكد من الرابط وصلاحية Anyone).'); };
-  document.body.appendChild(s);
-}
-function saveWebAppUrl(){
-  const v = document.getElementById('webAppUrlInput').value.trim();
-  if(!v) return alertCustom('الرجاء إدخال رابط صحيح');
-  WEB_APP_URL = v; localStorage.setItem('pf_webapp_url', WEB_APP_URL);
-  logMessage('تم تحديث الرابط.'); loadDataFromSheet();
-}
-function addEntry(ev){
-  ev.preventDefault();
-  const idxStr = document.getElementById('entryIndex').value;
-  const id = document.getElementById('entryId').value;
-  const isEdit = idxStr !== '';
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true; btn.innerText = isEdit ? 'جارٍ حفظ التعديلات…' : 'جارٍ الحفظ والتصدير…';
-  const entry = {
-    date: document.getElementById('entryDate').value,
-    type: document.getElementById('entryType').value,
-    category: document.getElementById('entryCategory').value,
-    amount: document.getElementById('entryAmount').value,
-    note: document.getElementById('entryNote').value || '-',
-    wallet: document.getElementById('entryWallet').value || '',
-    rate: document.getElementById('entryRate').value || document.getElementById('exchangeRateInput').value || '15000'
-  };
-  if(isEdit){ const idx = parseInt(idxStr,10); if(entries[idx]) entries[idx] = Object.assign({}, entries[idx], entry); }
-  else { entries.push(entry); }
-  localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
-  renderAll();
+  if(!WEB_APP_URL) return;
+  document.getElementById('syncStatus').innerText = 'جاري الجلب...';
+  logMessage('جاري تحميل البيانات من الجدول...');
 
-  if(!WEB_APP_URL){ btn.disabled=false; closeAddSheet(); alertCustom('تم الحفظ محلياً فقط. أدخل رابط Google Sheets من الإعدادات لتفعيل المزامنة السحابية'); return; }
-  if(isEdit && !id){ btn.disabled=false; closeAddSheet(); alertCustom('تم حفظ التعديل على هذا الجهاز فقط، فهذه الحركة قديمة ولا تملك بعد معرّفاً سحابياً'); return; }
-
-  logMessage(isEdit ? 'جارٍ تحديث الحركة في السحابة…' : 'حفظ محلي، جارٍ التصدير للسحابة…');
-  const qp = new URLSearchParams(Object.assign({ action: isEdit?'edit':'add' }, entry, { id: id||'', callback:'handleExportResponse', t:Date.now() }));
-  window.handleExportResponse = function(res){ logMessage('استجابة السحابة: '+JSON.stringify(res)); };
-  const old = document.getElementById('exportScript'); if(old) old.remove();
-  const s = document.createElement('script');
-  s.id='exportScript'; s.src = `${WEB_APP_URL}?${qp.toString()}`;
-  s.onload = function(){ alertCustom(isEdit ? 'تم حفظ التعديلات بنجاح' : 'تم تصدير الحركة إلى Google Sheets بنجاح'); btn.disabled=false; closeAddSheet(); setTimeout(loadDataFromSheet, 1000); };
-  s.onerror = function(){ alertCustom('تعذّر الوصول إلى السحابة الآن، تم الحفظ محلياً فقط'); btn.disabled=false; closeAddSheet(); };
-  document.body.appendChild(s);
-}
-function deleteEntry(){
-  const idxStr = document.getElementById('entryIndex').value;
-  const id = document.getElementById('entryId').value;
-  if(idxStr==='') return;
-  if(!confirm('هل تريد حذف هذه الحركة نهائياً؟')) return;
-  const idx = parseInt(idxStr,10);
-  if(!id){
-    entries.splice(idx,1); localStorage.setItem('pf_entries_sync', JSON.stringify(entries)); renderAll(); closeAddSheet();
-    alertCustom('تم الحذف من هذا الجهاز فقط، لأن هذه الحركة قديمة ولا تملك معرّفاً سحابياً بعد'); return;
-  }
-  const btn = document.getElementById('deleteBtn');
-  btn.disabled = true; btn.innerText = 'جارٍ الحذف…';
-  const qp = new URLSearchParams({ action:'delete', id, callback:'handleDeleteResponse', t:Date.now() });
-  window.handleDeleteResponse = function(res){ logMessage('استجابة الحذف: '+JSON.stringify(res)); };
-  const old = document.getElementById('deleteScript'); if(old) old.remove();
-  const s = document.createElement('script');
-  s.id='deleteScript'; s.src = `${WEB_APP_URL}?${qp.toString()}`;
-  s.onload = function(){ entries.splice(idx,1); localStorage.setItem('pf_entries_sync', JSON.stringify(entries)); renderAll(); alertCustom('تم حذف الحركة'); btn.disabled=false; btn.innerText='حذف الحركة نهائياً'; closeAddSheet(); setTimeout(loadDataFromSheet, 1000); };
-  s.onerror = function(){ alertCustom('تعذّر حذف الحركة، تحقق من الاتصال'); btn.disabled=false; btn.innerText='حذف الحركة نهائياً'; };
-  document.body.appendChild(s);
-}
-function exportToCSV(){
-  const data = window._lastFiltered && window._lastFiltered.length ? window._lastFiltered : entries;
-  if(data.length===0) return alertCustom('لا توجد بيانات لتصديرها');
-  const rate = parseFloat(document.getElementById('exchangeRateInput').value)||15000;
-  let csv = "\uFEFFالتاريخ,النوع,التصنيف,المبلغ (ل.س),سعر الصرف وقتها,المبلغ (دولار),المحفظة,ملاحظة\n";
-  data.forEach(it=>{
-    const isRev = it.type==='revenue'||it.type==='دخل'; const val = Number(it.amount)||0; const r = Number(it.rate)||rate;
-    csv += `"${it.date}","${isRev?'دخل':'مصروف'}","${it.category}","${val}","${r}","${(val/r).toFixed(2)}","${it.wallet||''}","${it.note||''}"\n`;
-  });
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='مصروفي_'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a); a.click(); a.remove();
-  alertCustom('تم تصدير ملف CSV');
-}
-function alertCustom(msg){
-  const box = document.createElement('div');
-  box.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl shadow-lg z-50 text-[12px] font-semibold max-w-[85vw] text-center';
-  box.style.background = 'var(--brand)'; box.style.color = '#fff';
-  box.innerText = msg;
-  document.body.appendChild(box);
-  setTimeout(()=>box.remove(), 3600);
+  fetch(WEB_APP_URL)
+    .then(r => r.json())
+    .then(data => {
+      if(Array.isArray(data)){
+        entries = data;
+        localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
+        renderAll();
+        document.getElementById('syncStatus').innerText = 'متصل بالسحابة';
+        logMessage(`تم استلام ${data.length} حركة بنجاح.`);
+      }
+    })
+    .catch(err => {
+      document.getElementById('syncStatus').innerText = 'خطأ في الجلب';
+      logMessage('فشل جلب البيانات: ' + err.message);
+    });
 }
 
-window.onload = function(){
+window.addEventListener('DOMContentLoaded', () => {
   initLock();
-  document.getElementById('entryDate').valueAsDate = new Date();
-  document.getElementById('webAppUrlInput').value = WEB_APP_URL;
-  document.getElementById('exchangeRateInput').value = localStorage.getItem('pf_rate') || '15000';
+  loadRate();
   fillWalletSelects();
-  updateCategories();
-  try{ entries = JSON.parse(localStorage.getItem('pf_entries_sync')) || []; }catch(e){ entries=[]; }
+  document.getElementById('webAppUrlInput').value = WEB_APP_URL;
   renderAll();
-  loadDataFromSheet();
-};
+  if(WEB_APP_URL) loadDataFromSheet();
+});
 </script>
 </body>
 </html>
