@@ -144,6 +144,30 @@
     <button id="loadMoreBtn" onclick="loadMore()" class="hidden w-full rounded-xl py-2.5 text-[12px] font-semibold" style="background:var(--chip);border:1px solid var(--line)">عرض المزيد من الحركات</button>
   </section>
 
+  <!-- تبويب الديون والالتزامات الثابتة -->
+  <section id="tab-debts" class="tabpane space-y-4">
+    <div class="rounded-2xl p-4 space-y-3" style="background:var(--surface);border:1px solid var(--line)">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-[14px]">إدارة الديون والخصم التلقائي</h3>
+        <button onclick="openNewDebtSheet()" class="px-3 py-1.5 rounded-xl text-[11px] font-bold" style="background:var(--brand);color:#fff">+ إضافة دين</button>
+      </div>
+      <p class="text-[11px]" style="color:var(--muted)">عند الضغط على "تسديد دفعة"، يتم خصم المبلغ الثابت من أصل الدين وتسجيل حركة مصروف تلقائياً.</p>
+      <div id="debtsContainer" class="space-y-3"></div>
+    </div>
+
+    <div class="rounded-2xl p-4 space-y-3" style="background:var(--surface);border:1px solid var(--line)">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-[14px]">الالتزامات الشهرية الثابتة</h3>
+        <button onclick="openNewFixedObligationSheet()" class="px-3 py-1.5 rounded-xl text-[11px] font-bold" style="background:var(--brand);color:#fff">+ إضافة التزام</button>
+      </div>
+      <div id="fixedObligationsContainer" class="space-y-2"></div>
+      <div class="pt-2 border-t flex items-center justify-between font-bold text-[12px]" style="border-color:var(--line)">
+        <span>إجمالي الالتزامات الثابتة شهرياً:</span>
+        <span id="totalFixedObligationsSum" style="color:var(--soil)">0 ل.س</span>
+      </div>
+    </div>
+  </section>
+
   <section id="tab-wallets" class="tabpane space-y-3">
     <p class="text-[11px] px-1" style="color:var(--muted)">أضف محافظك أو حساباتك (نقدي، بطاقة بنكية، توفير...) لمتابعة رصيد كل واحدة منها على حدة.</p>
     <div class="flex gap-2">
@@ -283,27 +307,30 @@
 </div>
 
 <nav class="fixed bottom-0 left-0 right-0 z-30" style="background:var(--surface);border-top:1px solid var(--line)">
-  <div class="max-w-lg mx-auto grid grid-cols-5 items-center px-2 py-1.5 relative">
+  <div class="max-w-lg mx-auto grid grid-cols-6 items-center px-1 py-1.5 relative">
     <button class="navbtn active flex flex-col items-center gap-0.5 py-1.5" style="color:var(--muted)" data-tab="dash" onclick="showTab('dash')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9h14v-9"/></svg>
-      <span class="text-[10px] font-semibold">الرئيسية</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v9h14v-9"/></svg>
+      <span class="text-[9px] font-semibold">الرئيسية</span>
     </button>
     <button class="navbtn flex flex-col items-center gap-0.5 py-1.5" style="color:var(--muted)" data-tab="list" onclick="showTab('list')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
-      <span class="text-[10px] font-semibold">الحركات</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span class="text-[9px] font-semibold">الحركات</span>
+    </button>    <button class="navbtn flex flex-col items-center gap-0.5 py-1.5" style="color:var(--muted)" data-tab="debts" onclick="showTab('debts')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg>
+      <span class="text-[9px] font-semibold">الديون</span>
     </button>
     <div class="flex items-center justify-center">
-      <button onclick="fabAction()" aria-label="إضافة" class="w-12 h-12 rounded-2xl -mt-6 flex items-center justify-center shadow-lg" style="background:var(--brand)">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      <button onclick="fabAction()" aria-label="إضافة" class="w-11 h-11 rounded-2xl -mt-5 flex items-center justify-center shadow-lg" style="background:var(--brand)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
       </button>
     </div>
     <button class="navbtn flex flex-col items-center gap-0.5 py-1.5" style="color:var(--muted)" data-tab="tasks" onclick="showTab('tasks')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.3 1.3L7 5M3.5 12l1.3 1.3L7 11M3.5 18l1.3 1.3L7 17"/></svg>
-      <span class="text-[10px] font-semibold">المهام</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.3 1.3L7 5M3.5 12l1.3 1.3L7 11M3.5 18l1.3 1.3L7 17"/></svg>
+      <span class="text-[9px] font-semibold">المهام</span>
     </button>
     <button class="navbtn flex flex-col items-center gap-0.5 py-1.5" style="color:var(--muted)" data-tab="wallets" onclick="showTab('wallets')">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16" cy="14" r="1.4"/></svg>
-      <span class="text-[10px] font-semibold">المحافظ</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><circle cx="16" cy="14" r="1.4"/></svg>
+      <span class="text-[9px] font-semibold">المحافظ</span>
     </button>
   </div>
 </nav>
@@ -317,6 +344,9 @@ let WEB_APP_URL = WEB_APP_URL_FIXED || localStorage.getItem('pf_webapp_url') || 
 let entries = [];
 try{ entries = JSON.parse(localStorage.getItem('pf_entries_sync')) || []; }catch(e){ entries = []; }
 let wallets = JSON.parse(localStorage.getItem('pf_wallets') || '["نقدي","بطاقة بنكية"]');
+let debts = JSON.parse(localStorage.getItem('pf_debts') || '[]');
+let fixedObligations = JSON.parse(localStorage.getItem('pf_fixed_obligations') || '[]');
+
 let barChartInstance = null, pieChartInstance = null;
 let listShown = 30;
 const LIST_PAGE = 30;
@@ -448,6 +478,7 @@ function showTab(name){
   document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
   if(name==='wallets') renderWallets();
   if(name==='tasks') renderTasks();
+  if(name==='debts') renderDebtsAndObligations();
 }
 
 function openAddSheet(){ document.getElementById('addSheet').classList.remove('hidden'); requestAnimationFrame(()=>document.getElementById('sheetInner').classList.remove('translate-y-full')); }
@@ -550,6 +581,120 @@ function renderWallets(){
       <p class="text-[11px] mt-1" style="color:var(--muted)">الرصيد: <b style="color:${net>=0?'var(--leaf)':'var(--soil)'}">${fmt(net)} ل.س</b> ($${usdVal(netUSD)})</p>
     </div>`;
   }).join('');
+}
+
+// ------ منطق الديون والالتزامات الثابتة ------
+function renderDebtsAndObligations(){
+  const debtsBox = document.getElementById('debtsContainer');
+  if(!debts.length){
+    debtsBox.innerHTML = `<p class="text-[12px] text-center py-4" style="color:var(--muted)">لا توجد ديون مسجلة حالياً.</p>`;
+  } else {
+    debtsBox.innerHTML = debts.map((d, idx)=>`
+      <div class="rounded-xl p-3 space-y-2" style="background:var(--chip);border:1px solid var(--line)">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-[13px]">${esc(d.name)}</span>
+          <div class="flex items-center gap-1">
+            <button onclick="payDebtInstallment(${idx})" class="px-2.5 py-1 rounded-lg text-[11px] font-bold" style="background:var(--brand);color:#fff">تسديد دفعة (${fmt(d.fixedPayment)})</button>
+            <button onclick="deleteDebt(${idx})" class="p-1 rounded-lg text-[11px]" style="color:var(--soil)">✕</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-1 text-[10px] text-center">
+          <div class="p-1.5 rounded bg-white/50">الأصلي: <b>${fmt(d.originalAmount)}</b></div>
+          <div class="p-1.5 rounded bg-white/50">الدفعة: <b>${fmt(d.fixedPayment)}</b></div>
+          <div class="p-1.5 rounded bg-white/50">المتبقي: <b style="color:var(--soil)">${fmt(d.remainingAmount)}</b></div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const fixedBox = document.getElementById('fixedObligationsContainer');
+  let sum = 0;
+  if(!fixedObligations.length){
+    fixedBox.innerHTML = `<p class="text-[12px] text-center py-4" style="color:var(--muted)">لا توجد التزامات شهرية مسجلة.</p>`;
+  } else {
+    fixedBox.innerHTML = fixedObligations.map((fo, idx)=>{
+      sum += Number(fo.amount)||0;
+      return `
+        <div class="flex items-center justify-between p-2.5 rounded-xl text-[12px]" style="background:var(--chip)">
+          <span>${esc(fo.name)}</span>
+          <div class="flex items-center gap-2">
+            <span class="font-bold">${fmt(fo.amount)} ل.س</span>
+            <button onclick="deleteFixedObligation(${idx})" class="text-[11px]" style="color:var(--soil)">✕</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  document.getElementById('totalFixedObligationsSum').innerText = fmt(sum) + ' ل.س';
+}
+
+function openNewDebtSheet(){
+  const name = prompt('أدخل اسم الدين أو الجهة:'); if(!name) return;
+  const orig = parseFloat(prompt('أدخل إجمالي مبلغ الدين الأصلي (ل.س):')); if(!orig || orig<=0) return;
+  const pay = parseFloat(prompt('أدخل الدفعة الشهريّة / الثابتة (ل.س):')); if(!pay || pay<=0) return;
+
+  debts.push({ name: name.trim(), originalAmount: orig, remainingAmount: orig, fixedPayment: pay });
+  localStorage.setItem('pf_debts', JSON.stringify(debts));
+  renderDebtsAndObligations();
+  alertCustom('تمت إضافة الدين بنجاح');
+}
+
+function deleteDebt(idx){
+  if(!confirm('هل تريد حذف هذا الدين؟')) return;
+  debts.splice(idx,1);
+  localStorage.setItem('pf_debts', JSON.stringify(debts));
+  renderDebtsAndObligations();
+}
+
+function payDebtInstallment(idx){
+  const d = debts[idx]; if(!d) return;
+  const payAmt = Math.min(d.fixedPayment, d.remainingAmount);
+  if(!confirm(`تسديد دفعة بقيمة ${fmt(payAmt)} ل.س لدين (${d.name}) وخصمها من أصل الدين؟`)) return;
+
+  d.remainingAmount -= payAmt;
+  if(d.remainingAmount <= 0){
+    alertCustom('تهانينا! تم تسديد هذا الدين بالكامل.');
+    debts.splice(idx,1);
+  }
+  localStorage.setItem('pf_debts', JSON.stringify(debts));
+
+  // إضافتها تلقائياً كحركة مصروف ومزامنتها مع Google Sheets
+  const entry = {
+    date: todayStr(),
+    type: 'expense',
+    category: 'ديون والتزامات',
+    amount: payAmt,
+    note: `تسديد دفعة دين: ${d.name}`,
+    wallet: wallets[0] || '',
+    rate: document.getElementById('exchangeRateInput').value || '15000'
+  };
+  entries.push(entry);
+  localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
+  renderAll();
+  renderDebtsAndObligations();
+
+  if(WEB_APP_URL){
+    const qp = new URLSearchParams(Object.assign({ action: 'add' }, entry, { id:'', token:AUTH_TOKEN, callback:'handleExportResponse', t:Date.now() }));
+    window.handleExportResponse = function(){ loadDataFromSheet(); };
+    const s = document.createElement('script');
+    s.src = `${WEB_APP_URL}?${qp.toString()}`;
+    document.body.appendChild(s);
+  }
+}
+
+function openNewFixedObligationSheet(){
+  const name = prompt('أدخل بند الالتزام الثابت (مثال: إيجار السكن):'); if(!name) return;
+  const amt = parseFloat(prompt('أدخل المبلغ الشهري الثابت (ل.س):')); if(!amt || amt<=0) return;
+
+  fixedObligations.push({ name: name.trim(), amount: amt });
+  localStorage.setItem('pf_fixed_obligations', JSON.stringify(fixedObligations));
+  renderDebtsAndObligations();
+}
+
+function deleteFixedObligation(idx){
+  fixedObligations.splice(idx,1);
+  localStorage.setItem('pf_fixed_obligations', JSON.stringify(fixedObligations));
+  renderDebtsAndObligations();
 }
 
 function onFiltersChanged(){ listShown = LIST_PAGE; renderAll(); }
