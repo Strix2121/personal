@@ -189,7 +189,7 @@
       </div>
     </div>
     <p class="text-[11px] px-1" style="color:var(--muted)">تُحفظ الحركات محلياً على هذا الجهاز أيضاً كنسخة احتياطية، وتتم مزامنتها مع الجدول عند توفر الاتصال بالإنترنت.</p>
-    <p class="text-[11px] px-1" style="color:var(--muted)">المهام اليومية تُحفظ على هذا الجهاز فقط ولا تُرسل إلى Google Sheets.</p>
+    <p class="text-[11px] px-1" style="color:var(--muted)">المهام اليومية تُحفظ في Google Sheets (ورقة Tasks) ويتم تحميلها تلقائياً من أي متصفح أو جهاز.</p>
   </section>
 
   <section id="tab-tasks" class="tabpane space-y-3">
@@ -743,6 +743,68 @@ function addDays(str,n){ const d=new Date(str+'T12:00:00'); d.setDate(d.getDate(
 function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function saveTasks(){ localStorage.setItem('pf_tasks', JSON.stringify(tasks)); }
 
+// ---- مزامنة المهام مع Google Sheets ----
+let taskOps = [];
+try{ taskOps = JSON.parse(localStorage.getItem('pf_task_ops')) || []; }catch(e){ taskOps = []; }
+let taskFlushing = false;
+function saveOps(){ localStorage.setItem('pf_task_ops', JSON.stringify(taskOps)); }
+function taskApi(params, cb){
+  if(!WEB_APP_URL){ cb && cb(null); return; }
+  const name = '__tcb' + Date.now() + Math.floor(Math.random()*1e6);
+  const s = document.createElement('script');
+  let finished = false;
+  const done = function(res){
+    if(finished) return; finished = true;
+    try{ delete window[name]; }catch(e){ window[name] = undefined; }
+    s.remove(); cb && cb(res);
+  };
+  window[name] = done;
+  s.onerror = function(){ done(null); };
+  setTimeout(function(){ done(null); }, 20000);
+  s.src = WEB_APP_URL + '?' + new URLSearchParams(Object.assign({callback:name, t:Date.now()}, params)).toString();
+  document.body.appendChild(s);
+}
+function queueTaskOp(op){
+  taskOps = taskOps.filter(o=>!(o.id===op.id)); // آخر عملية لنفس المهمة تكفي
+  taskOps.push(op); saveOps(); flushTaskOps();
+}
+function flushTaskOps(cb){
+  if(taskFlushing){ return; }
+  if(!taskOps.length){ cb && cb(true); return; }
+  taskFlushing = true;
+  const op = taskOps[0];
+  let params;
+  if(op.t==='s'){
+    const t = tasks.find(x=>x.id===op.id);
+    if(!t){ taskOps.shift(); saveOps(); taskFlushing=false; flushTaskOps(cb); return; }
+    params = { action:'task_save', id:t.id, json:JSON.stringify(t) };
+  } else { params = { action:'task_delete', id:op.id }; }
+  taskApi(params, function(res){
+    taskFlushing = false;
+    if(res && res.result==='success'){ taskOps = taskOps.filter(o=>o!==op); saveOps(); flushTaskOps(cb); }
+    else { cb && cb(false); }
+  });
+}
+function loadTasksFromSheet(){
+  if(!WEB_APP_URL) return;
+  flushTaskOps(function(ok){
+    if(!ok){ logMessage('تعذّر رفع تغييرات المهام، ستُعاد المحاولة لاحقاً.'); return; }
+    taskApi({action:'tasks_list'}, function(res){
+      if(!(res && res.result==='success' && Array.isArray(res.tasks))){ logMessage('تعذّر جلب المهام من Google Sheets.'); return; }
+      const remote = res.tasks;
+      const remoteIds = new Set(remote.map(t=>t.id));
+      // ترحيل لمرة واحدة: المهام المحلية القديمة غير الموجودة في الجدول
+      if(!localStorage.getItem('pf_tasks_migrated')){
+        const extra = tasks.filter(t=>!remoteIds.has(t.id));
+        extra.forEach(t=>{ remote.push(t); taskOps.push({t:'s', id:t.id}); });
+        saveOps(); localStorage.setItem('pf_tasks_migrated','1');
+      }
+      tasks = remote; saveTasks(); renderTasks(); flushTaskOps();
+      logMessage('تم تحميل '+tasks.length+' مهمة من Google Sheets.');
+    });
+  });
+}
+
 function fabAction(){ if(currentTab==='tasks') openNewTaskSheet(); else openNewEntrySheet(); }
 
 function taskDoneOn(t,day){ return t.repeat==='daily' ? (t.doneDates||[]).includes(day) : !!t.doneAt; }
@@ -815,7 +877,7 @@ function toggleTask(id){
     const i = t.doneDates.indexOf(day);
     if(i>-1) t.doneDates.splice(i,1); else t.doneDates.push(day);
   } else { t.doneAt = t.doneAt ? '' : day; }
-  saveTasks(); renderTasks();
+  saveTasks(); queueTaskOp({t:'s', id:t.id}); renderTasks();
   const all = tasks.filter(x=>taskVisibleOn(x,day));
   if(all.length && taskDoneOn(t,day) && all.every(x=>taskDoneOn(x,day))) alertCustom('أحسنت! أنجزت جميع مهام هذا اليوم');
 }
@@ -853,21 +915,24 @@ function saveTask(ev){
   if(!title){ alertCustom('اكتب عنوان المهمة'); return; }
   const id = document.getElementById('taskId').value;
   const data = { title, priority: parseInt(document.getElementById('taskPriority').value,10)||2, date: document.getElementById('taskDate').value || todayStr(), repeat: document.getElementById('taskRepeat').value, note: document.getElementById('taskNote').value.trim() };
+  let savedId = id;
   if(id){ const t = tasks.find(x=>x.id===id); if(t) Object.assign(t,data); }
-  else { tasks.push(Object.assign({ id:'t'+Date.now()+Math.floor(Math.random()*1000), createdAt:Date.now(), doneAt:'', doneDates:[] }, data)); taskDay = data.date; }
-  saveTasks(); closeTaskSheet(); renderTasks();
+  else { savedId = 't'+Date.now()+Math.floor(Math.random()*1000); tasks.push(Object.assign({ id:savedId, createdAt:Date.now(), doneAt:'', doneDates:[] }, data)); taskDay = data.date; }
+  saveTasks(); queueTaskOp({t:'s', id:savedId}); closeTaskSheet(); renderTasks();
   alertCustom(id ? 'تم حفظ التعديلات' : 'تمت إضافة المهمة');
 }
 function deleteTask(){
   const id = document.getElementById('taskId').value; const t = tasks.find(x=>x.id===id); if(!t) return;
   if(!confirm(t.repeat==='daily' ? 'هذه مهمة متكررة يومياً، سيتم حذفها من كل الأيام. هل تريد المتابعة؟' : 'هل تريد حذف هذه المهمة؟')) return;
-  tasks = tasks.filter(x=>x.id!==id); saveTasks(); closeTaskSheet(); renderTasks(); alertCustom('تم حذف المهمة');
+  tasks = tasks.filter(x=>x.id!==id); saveTasks(); queueTaskOp({t:'d', id}); closeTaskSheet(); renderTasks(); alertCustom('تم حذف المهمة');
 }
 function clearDoneTasks(){
   const n = tasks.filter(t=>t.repeat!=='daily' && t.doneAt).length;
   if(!n){ alertCustom('لا توجد مهام منجزة لحذفها'); return; }
   if(!confirm('سيتم حذف '+n+' مهمة منجزة نهائياً. هل تريد المتابعة؟')) return;
-  tasks = tasks.filter(t=>!(t.repeat!=='daily' && t.doneAt)); saveTasks(); renderTasks();
+  const removed = tasks.filter(t=>(t.repeat!=='daily' && t.doneAt));
+  tasks = tasks.filter(t=>!(t.repeat!=='daily' && t.doneAt)); saveTasks();
+  removed.forEach(t=>queueTaskOp({t:'d', id:t.id})); renderTasks();
 }
 document.addEventListener('visibilitychange', ()=>{
   if(!document.hidden && lastToday!==todayStr()){ if(taskDay===lastToday) taskDay = todayStr(); lastToday = todayStr(); renderTasks(); }
@@ -887,6 +952,7 @@ window.onload = function(){
   renderAll();
   loadDataFromSheet();
   setTaskFilter('all');
+  loadTasksFromSheet();
 };
 </script>
 </body>
