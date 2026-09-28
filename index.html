@@ -47,19 +47,11 @@
     <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5" style="background:var(--brand)">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#DDEFC9" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
     </div>
-    <div id="lockSetupView" class="hidden text-center space-y-3">
-      <h2 class="font-bold text-[15px]">إنشاء رمز دخول للتطبيق</h2>
-      <p class="text-[12px]" style="color:var(--muted)">هذا الرمز يحمي التطبيق من الدخول العارض على هذا الجهاز فقط، ولا يشفّر البيانات نفسها.</p>
-      <input type="password" inputmode="numeric" maxlength="6" id="newPin" placeholder="رمز جديد (4 أرقام على الأقل)" class="w-full text-center rounded-xl px-3 py-3 text-[16px] tracking-widest outline-none" style="background:var(--chip);border:1px solid var(--line)">
-      <input type="password" inputmode="numeric" maxlength="6" id="confirmPin" placeholder="تأكيد الرمز" class="w-full text-center rounded-xl px-3 py-3 text-[16px] tracking-widest outline-none" style="background:var(--chip);border:1px solid var(--line)">
-      <button onclick="setupPin()" class="w-full rounded-xl py-3 text-[13px] font-bold" style="background:var(--brand);color:#fff">حفظ الرمز والمتابعة</button>
-      <button onclick="skipPin()" class="w-full text-[11px]" style="color:var(--muted)">المتابعة بدون رمز دخول</button>
-    </div>
     <div id="lockEnterView" class="hidden text-center space-y-3">
       <h2 class="font-bold text-[15px]">أدخل رمز الدخول</h2>
-      <input type="password" inputmode="numeric" maxlength="6" id="enterPin" placeholder="رمز الدخول" class="w-full text-center rounded-xl px-3 py-3 text-[16px] tracking-widest outline-none" style="background:var(--chip);border:1px solid var(--line)">
+      <input type="password" maxlength="12" id="enterPin" placeholder="رمز الدخول" class="w-full text-center rounded-xl px-3 py-3 text-[16px] tracking-widest outline-none" style="background:var(--chip);border:1px solid var(--line)">
       <p id="lockError" class="hidden text-[11px]" style="color:var(--soil)">الرمز غير صحيح، حاول مرة أخرى.</p>
-      <button onclick="checkPin()" class="w-full rounded-xl py-3 text-[13px] font-bold" style="background:var(--brand);color:#fff">دخول</button>
+      <button id="loginBtn" onclick="checkPin()" class="w-full rounded-xl py-3 text-[13px] font-bold" style="background:var(--brand);color:#fff">دخول</button>
       <button onclick="forgotPin()" class="w-full text-[11px]" style="color:var(--muted)">نسيت الرمز؟</button>
     </div>
   </div>
@@ -174,10 +166,9 @@
       <label class="text-[12px] font-semibold" style="color:var(--muted)">رمز الدخول إلى التطبيق</label>
       <p class="text-[10px]" style="color:var(--muted)" id="pinFixedNote"></p>
       <div class="flex gap-2">
-        <input type="password" inputmode="numeric" maxlength="6" id="settingsNewPin" placeholder="رمز جديد" class="w-full rounded-xl px-3 py-2 text-[13px] text-center tracking-widest outline-none" style="background:var(--chip);border:1px solid var(--line)">
+        <input type="password" maxlength="12" id="settingsNewPin" placeholder="رمز جديد" class="w-full rounded-xl px-3 py-2 text-[13px] text-center tracking-widest outline-none" style="background:var(--chip);border:1px solid var(--line)">
         <button onclick="changePin()" class="px-4 rounded-xl text-[12px] font-semibold whitespace-nowrap" style="background:var(--brand);color:#fff">حفظ الرمز</button>
       </div>
-      <button onclick="disablePin()" class="text-[11px]" style="color:var(--soil)">إلغاء رمز الدخول نهائياً</button>
     </div>
     <div class="rounded-2xl p-4" style="background:var(--surface);border:1px solid var(--line)">
       <button onclick="toggleDebugPanel()" class="w-full flex items-center justify-between text-[12px] font-semibold">
@@ -213,6 +204,7 @@
       <button data-tf="pending" onclick="setTaskFilter('pending')" class="tf-btn rounded-lg px-3 py-1.5 text-[11px] font-semibold" style="background:var(--chip);color:var(--ink)">المتبقية</button>
       <button data-tf="done" onclick="setTaskFilter('done')" class="tf-btn rounded-lg px-3 py-1.5 text-[11px] font-semibold" style="background:var(--chip);color:var(--ink)">المنجزة</button>
     </div>
+    <p id="taskSyncStatus" class="text-[11px] text-center" style="color:var(--muted)"></p>
     <div id="tasksList" class="space-y-2"></div>
     <button onclick="clearDoneTasks()" class="w-full text-[11px] py-2" style="color:var(--muted)">حذف المهام المنجزة غير المتكررة نهائياً</button>
   </section>
@@ -320,10 +312,10 @@
 // ====== إعدادات ثابتة (اتغيّر هون مرة واحدة وبتشتغل على أي جهاز/متصفح بدون ما تحتاج تعيدها) ======
 // حط هون رابط الـ Web App تبعك من Google Apps Script (Deploy > Web app > Copy URL)
 const WEB_APP_URL_FIXED = "https://script.google.com/macros/s/AKfycbyoV6w91Hk3OzO5NwBqyvNv1Hbjkumo7NEjn_95xtz8EkaPegJibSnpnTR173hPKdK8cA/exec";
-// حط هون رمز الدخول يلي بدك ياه (أرقام أو حروف)، وهاد هو الرمز يلي رح يطلب من أي جهاز يفتح الموقع
-const APP_PIN_FIXED = "1615";
+// رمز الدخول لم يعد مكتوباً هنا: صار محفوظاً على سيرفر Google (Script Properties) ويتحقق منه الباك ايند.
 // ===============================================================================================
 
+let AUTH_TOKEN = localStorage.getItem('pf_token') || '';
 let WEB_APP_URL = WEB_APP_URL_FIXED || localStorage.getItem('pf_webapp_url') || "";
 let entries = [];
 let wallets = JSON.parse(localStorage.getItem('pf_wallets') || '["نقدي","بطاقة بنكية"]');
@@ -383,40 +375,68 @@ function usd(n,rate){ return (n/rate).toLocaleString('en-US',{minimumFractionDig
 function usdVal(n){ return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function logMessage(msg){ const b=document.getElementById('debugPanel'); if(!b) return; b.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`; b.scrollTop=b.scrollHeight; }
 
-function showLock(view){
+function showLock(){
   document.getElementById('lockScreen').classList.remove('hidden');
-  document.getElementById('lockSetupView').classList.toggle('hidden', view!=='setup');
-  document.getElementById('lockEnterView').classList.toggle('hidden', view!=='enter');
+  document.getElementById('lockEnterView').classList.remove('hidden');
 }
-function currentPin(){ return APP_PIN_FIXED || localStorage.getItem('pf_pin') || ''; }
-function initLock(){ if(currentPin()){ showLock('enter'); } else { showLock('setup'); } }
-function setupPin(){
-  const a = document.getElementById('newPin').value.trim(), b = document.getElementById('confirmPin').value.trim();
-  if(a.length<4){ alertCustom('الرمز يجب أن يتكون من 4 أرقام على الأقل'); return; }
-  if(a!==b){ alertCustom('الرمزان غير متطابقين'); return; }
-  localStorage.setItem('pf_pin', a);
+function authFail(msg){
+  AUTH_TOKEN = ''; localStorage.removeItem('pf_token');
+  showLock();
+  const er = document.getElementById('lockError');
+  er.innerText = msg || 'انتهت الجلسة، أدخل الرمز من جديد.'; er.classList.remove('hidden');
+}
+function unlockApp(){
   document.getElementById('lockScreen').classList.add('hidden');
+  document.getElementById('enterPin').value = '';
+  document.getElementById('lockError').classList.add('hidden');
+  loadDataFromSheet(); loadTasksFromSheet();
 }
-function skipPin(){ document.getElementById('lockScreen').classList.add('hidden'); }
+function initLock(){
+  showLock();
+  if(!AUTH_TOKEN) return;
+  taskApi({action:'ping'}, function(res){
+    if(res && res.result==='success' && res.op==='ping') unlockApp();
+    else if(!res) document.getElementById('lockScreen').classList.add('hidden'); // بدون اتصال: استخدم النسخة المحلية
+    else if(res.code!=='auth') authFail('الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version).');
+  });
+}
+let loginBusy = false;
 function checkPin(){
-  const pin = currentPin(), val = document.getElementById('enterPin').value.trim();
-  if(val===pin){ document.getElementById('lockScreen').classList.add('hidden'); document.getElementById('enterPin').value=''; document.getElementById('lockError').classList.add('hidden'); }
-  else { document.getElementById('lockError').classList.remove('hidden'); const box=document.getElementById('lockEnterView'); box.classList.add('shake'); setTimeout(()=>box.classList.remove('shake'),300); }
+  if(loginBusy) return;
+  const val = document.getElementById('enterPin').value.trim(); if(!val) return;
+  const btn = document.getElementById('loginBtn');
+  loginBusy = true; btn.disabled = true; btn.innerText = 'جارٍ التحقق…';
+  taskApi({action:'login', pin:val}, function(res){
+    loginBusy = false; btn.disabled = false; btn.innerText = 'دخول';
+    if(res && res.result==='success' && res.token){ AUTH_TOKEN = res.token; localStorage.setItem('pf_token', AUTH_TOKEN); unlockApp(); return; }
+    let msg = 'الرمز غير صحيح، حاول مرة أخرى.';
+    if(!res) msg = 'تعذّر الاتصال بالسحابة، تحقق من الإنترنت.';
+    else if(res.code==='locked') msg = 'محاولات خاطئة كثيرة، حاول بعد 15 دقيقة.';
+    else if(res.code==='no_pin') msg = 'لم يتم ضبط الرمز في Apps Script بعد (Script Properties ← PIN).';
+    else if(res.result==='success') msg = 'الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version).';
+    const er = document.getElementById('lockError'); er.innerText = msg; er.classList.remove('hidden');
+    const box = document.getElementById('lockEnterView'); box.classList.add('shake'); setTimeout(()=>box.classList.remove('shake'),300);
+  });
 }
 function forgotPin(){
-  if(APP_PIN_FIXED){ alertCustom('الرمز محدد داخل ملف الموقع نفسه (APP_PIN_FIXED)، لازم تعدّله من هناك لو نسيتو'); return; }
-  alertCustom('يمكنك إلغاء الرمز من إعدادات المتصفح بمسح بيانات هذا الموقع، دون أن يؤثر ذلك على بيانات جدول Google Sheets');
+  alertCustom('الرمز محفوظ في إعدادات Apps Script: افتح المشروع ← Project Settings ← Script Properties ← الخاصية PIN، وغيّر قيمتها.');
 }
-function lockNow(){ showLock(currentPin() ? 'enter' : 'setup'); }
+function lockNow(){
+  AUTH_TOKEN = ''; localStorage.removeItem('pf_token');
+  document.getElementById('lockError').classList.add('hidden');
+  showLock();
+}
 function changePin(){
-  if(APP_PIN_FIXED){ alertCustom('الرمز الحالي محدد داخل ملف الموقع (APP_PIN_FIXED) وبيشتغل نفسو على كل الأجهزة. لتغييره عدّل القيمة داخل الملف بدل ما تغيّرو من هون'); return; }
   const v = document.getElementById('settingsNewPin').value.trim();
-  if(v.length<4){ alertCustom('الرمز يجب أن يتكون من 4 أرقام على الأقل'); return; }
-  localStorage.setItem('pf_pin', v); document.getElementById('settingsNewPin').value=''; alertCustom('تم تحديث رمز الدخول (على هذا الجهاز فقط)');
-}
-function disablePin(){
-  if(APP_PIN_FIXED){ alertCustom('ما فيك تلغي الرمز من هون طالما محدد داخل الملف (APP_PIN_FIXED)، احذفو من الملف نفسو إذا بدك تلغيه نهائياً'); return; }
-  localStorage.removeItem('pf_pin'); alertCustom('تم إلغاء رمز الدخول');
+  if(v.length<4){ alertCustom('الرمز يجب أن يتكون من 4 خانات على الأقل'); return; }
+  taskApi({action:'change_pin', newpin:v}, function(res){
+    if(res && res.result==='success' && res.token){
+      AUTH_TOKEN = res.token; localStorage.setItem('pf_token', AUTH_TOKEN);
+      document.getElementById('settingsNewPin').value = '';
+      alertCustom('تم تغيير الرمز. الأجهزة الأخرى ستطلب الرمز الجديد.');
+    } else if(!res) alertCustom('تعذّر الاتصال بالسحابة');
+    else if(res.code!=='auth') alertCustom(res.message || 'تعذّر تغيير الرمز');
+  });
 }
 
 function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('pf_theme', t); }
@@ -630,6 +650,8 @@ function loadDataFromSheet(){
       entries = res.data;
       localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
       renderAll();
+    } else if(res && res.code==='auth'){
+      authFail();
     } else {
       document.getElementById('syncStatus').innerText = 'الجدول فارغ أو تعذّر الجلب';
       logMessage('الجدول فارغ أو الاستجابة غير متوفرة.');
@@ -637,7 +659,7 @@ function loadDataFromSheet(){
   };
   const s = document.createElement('script');
   s.id='jsonpScript';
-  s.src = `${WEB_APP_URL}?callback=handleSheetData&limit=${FETCH_LIMIT}&t=${Date.now()}`;
+  s.src = `${WEB_APP_URL}?callback=handleSheetData&limit=${FETCH_LIMIT}&token=${encodeURIComponent(AUTH_TOKEN)}&t=${Date.now()}`;
   s.onerror = function(){ document.getElementById('syncStatus').innerText='تعذّر الاتصال بالسحابة'; logMessage('فشل الجلب (تأكد من الرابط وصلاحية Anyone).'); };
   document.body.appendChild(s);
 }
@@ -673,12 +695,17 @@ function addEntry(ev){
   if(isEdit && !id){ btn.disabled=false; closeAddSheet(); alertCustom('تم حفظ التعديل على هذا الجهاز فقط، فهذه الحركة قديمة ولا تملك بعد معرّفاً سحابياً'); return; }
 
   logMessage(isEdit ? 'جارٍ تحديث الحركة في السحابة…' : 'حفظ محلي، جارٍ التصدير للسحابة…');
-  const qp = new URLSearchParams(Object.assign({ action: isEdit?'edit':'add' }, entry, { id: id||'', callback:'handleExportResponse', t:Date.now() }));
-  window.handleExportResponse = function(res){ logMessage('استجابة السحابة: '+JSON.stringify(res)); };
+  const qp = new URLSearchParams(Object.assign({ action: isEdit?'edit':'add' }, entry, { id: id||'', token:AUTH_TOKEN, callback:'handleExportResponse', t:Date.now() }));
+  window.handleExportResponse = function(res){
+    logMessage('استجابة السحابة: '+JSON.stringify(res));
+    if(res && res.result==='success'){ alertCustom(isEdit ? 'تم حفظ التعديلات بنجاح' : 'تم تصدير الحركة إلى Google Sheets بنجاح'); setTimeout(loadDataFromSheet, 1000); }
+    else if(res && res.code==='auth'){ authFail(); alertCustom('انتهت الجلسة، لم تُحفظ الحركة في السحابة. سجّل الدخول وأعد إضافتها.'); }
+    else { alertCustom('تعذّر الحفظ في السحابة، تم الحفظ محلياً فقط'); }
+    btn.disabled=false; closeAddSheet();
+  };
   const old = document.getElementById('exportScript'); if(old) old.remove();
   const s = document.createElement('script');
   s.id='exportScript'; s.src = `${WEB_APP_URL}?${qp.toString()}`;
-  s.onload = function(){ alertCustom(isEdit ? 'تم حفظ التعديلات بنجاح' : 'تم تصدير الحركة إلى Google Sheets بنجاح'); btn.disabled=false; closeAddSheet(); setTimeout(loadDataFromSheet, 1000); };
   s.onerror = function(){ alertCustom('تعذّر الوصول إلى السحابة الآن، تم الحفظ محلياً فقط'); btn.disabled=false; closeAddSheet(); };
   document.body.appendChild(s);
 }
@@ -694,12 +721,17 @@ function deleteEntry(){
   }
   const btn = document.getElementById('deleteBtn');
   btn.disabled = true; btn.innerText = 'جارٍ الحذف…';
-  const qp = new URLSearchParams({ action:'delete', id, callback:'handleDeleteResponse', t:Date.now() });
-  window.handleDeleteResponse = function(res){ logMessage('استجابة الحذف: '+JSON.stringify(res)); };
+  const qp = new URLSearchParams({ action:'delete', id, token:AUTH_TOKEN, callback:'handleDeleteResponse', t:Date.now() });
+  window.handleDeleteResponse = function(res){
+    logMessage('استجابة الحذف: '+JSON.stringify(res));
+    btn.disabled=false; btn.innerText='حذف الحركة نهائياً';
+    if(res && res.result==='success'){ entries.splice(idx,1); localStorage.setItem('pf_entries_sync', JSON.stringify(entries)); renderAll(); alertCustom('تم حذف الحركة'); closeAddSheet(); setTimeout(loadDataFromSheet, 1000); }
+    else if(res && res.code==='auth'){ authFail(); alertCustom('انتهت الجلسة، لم يتم الحذف. سجّل الدخول وأعد المحاولة.'); }
+    else { alertCustom('تعذّر حذف الحركة'); }
+  };
   const old = document.getElementById('deleteScript'); if(old) old.remove();
   const s = document.createElement('script');
   s.id='deleteScript'; s.src = `${WEB_APP_URL}?${qp.toString()}`;
-  s.onload = function(){ entries.splice(idx,1); localStorage.setItem('pf_entries_sync', JSON.stringify(entries)); renderAll(); alertCustom('تم حذف الحركة'); btn.disabled=false; btn.innerText='حذف الحركة نهائياً'; closeAddSheet(); setTimeout(loadDataFromSheet, 1000); };
   s.onerror = function(){ alertCustom('تعذّر حذف الحركة، تحقق من الاتصال'); btn.disabled=false; btn.innerText='حذف الحركة نهائياً'; };
   document.body.appendChild(s);
 }
@@ -748,6 +780,7 @@ let taskOps = [];
 try{ taskOps = JSON.parse(localStorage.getItem('pf_task_ops')) || []; }catch(e){ taskOps = []; }
 let taskFlushing = false;
 function saveOps(){ localStorage.setItem('pf_task_ops', JSON.stringify(taskOps)); }
+function setTaskStatus(msg, bad){ const el=document.getElementById('taskSyncStatus'); if(el){ el.innerText=msg; el.style.color = bad ? 'var(--soil)' : 'var(--muted)'; } }
 function taskApi(params, cb){
   if(!WEB_APP_URL){ cb && cb(null); return; }
   const name = '__tcb' + Date.now() + Math.floor(Math.random()*1e6);
@@ -756,12 +789,14 @@ function taskApi(params, cb){
   const done = function(res){
     if(finished) return; finished = true;
     try{ delete window[name]; }catch(e){ window[name] = undefined; }
-    s.remove(); cb && cb(res);
+    s.remove();
+    if(res && res.code==='auth' && params.action!=='login') authFail();
+    cb && cb(res);
   };
   window[name] = done;
   s.onerror = function(){ done(null); };
   setTimeout(function(){ done(null); }, 20000);
-  s.src = WEB_APP_URL + '?' + new URLSearchParams(Object.assign({callback:name, t:Date.now()}, params)).toString();
+  s.src = WEB_APP_URL + '?' + new URLSearchParams(Object.assign({callback:name, t:Date.now(), token:AUTH_TOKEN}, params)).toString();
   document.body.appendChild(s);
 }
 function queueTaskOp(op){
@@ -769,7 +804,7 @@ function queueTaskOp(op){
   taskOps.push(op); saveOps(); flushTaskOps();
 }
 function flushTaskOps(cb){
-  if(taskFlushing){ return; }
+  if(taskFlushing){ if(cb) setTimeout(function(){ flushTaskOps(cb); }, 600); return; }
   if(!taskOps.length){ cb && cb(true); return; }
   taskFlushing = true;
   const op = taskOps[0];
@@ -781,16 +816,23 @@ function flushTaskOps(cb){
   } else { params = { action:'task_delete', id:op.id }; }
   taskApi(params, function(res){
     taskFlushing = false;
-    if(res && res.result==='success'){ taskOps = taskOps.filter(o=>o!==op); saveOps(); flushTaskOps(cb); }
-    else { cb && cb(false); }
+    const expected = op.t==='s' ? 'task_save' : 'task_delete';
+    if(res && res.result==='success' && res.op===expected){ taskOps = taskOps.filter(o=>o!==op); saveOps(); setTaskStatus(taskOps.length ? 'جاري المزامنة…' : 'تم الحفظ في Google Sheets ✓'); flushTaskOps(cb); }
+    else if(res && res.result==='success'){ setTaskStatus('الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version) ثم أعد فتح الموقع.', true); cb && cb(false); }
+    else if(res && res.result==='error'){ setTaskStatus('خطأ من الجدول: '+(res.message||''), true); cb && cb(false); }
+    else { setTaskStatus('تعذّر الاتصال بالسحابة، سيُعاد رفع المهام لاحقاً.', true); cb && cb(false); }
   });
 }
 function loadTasksFromSheet(){
   if(!WEB_APP_URL) return;
   flushTaskOps(function(ok){
     if(!ok){ logMessage('تعذّر رفع تغييرات المهام، ستُعاد المحاولة لاحقاً.'); return; }
+    setTaskStatus('جاري تحميل المهام…');
     taskApi({action:'tasks_list'}, function(res){
-      if(!(res && res.result==='success' && Array.isArray(res.tasks))){ logMessage('تعذّر جلب المهام من Google Sheets.'); return; }
+      if(!(res && res.result==='success' && Array.isArray(res.tasks))){
+        setTaskStatus(res && res.result==='success' ? 'الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version) ثم أعد فتح الموقع.' : 'تعذّر جلب المهام من Google Sheets.', true);
+        logMessage('تعذّر جلب المهام من Google Sheets.'); return;
+      }
       const remote = res.tasks;
       const remoteIds = new Set(remote.map(t=>t.id));
       // ترحيل لمرة واحدة: المهام المحلية القديمة غير الموجودة في الجدول
@@ -799,7 +841,7 @@ function loadTasksFromSheet(){
         extra.forEach(t=>{ remote.push(t); taskOps.push({t:'s', id:t.id}); });
         saveOps(); localStorage.setItem('pf_tasks_migrated','1');
       }
-      tasks = remote; saveTasks(); renderTasks(); flushTaskOps();
+      tasks = remote; saveTasks(); renderTasks(); flushTaskOps(); setTaskStatus('المهام متزامنة مع Google Sheets ✓');
       logMessage('تم تحميل '+tasks.length+' مهمة من Google Sheets.');
     });
   });
@@ -943,16 +985,14 @@ window.onload = function(){
   initLock();
   document.getElementById('entryDate').value = todayStr();
   if(WEB_APP_URL_FIXED){ document.getElementById('urlFixedNote').innerText = 'هذا الرابط محدد داخل ملف الموقع، وشغّال تلقائياً على أي جهاز.'; }
-  if(APP_PIN_FIXED){ document.getElementById('pinFixedNote').innerText = 'الرمز محدد داخل ملف الموقع، وهو نفسه على أي جهاز يفتح الموقع.'; }
+  document.getElementById('pinFixedNote').innerText = 'الرمز محفوظ على سيرفر Google وليس داخل ملف الموقع، وهو نفسه على أي جهاز.';
   document.getElementById('webAppUrlInput').value = WEB_APP_URL;
   document.getElementById('exchangeRateInput').value = localStorage.getItem('pf_rate') || '15000';
   fillWalletSelects();
   updateCategories();
   try{ entries = JSON.parse(localStorage.getItem('pf_entries_sync')) || []; }catch(e){ entries=[]; }
   renderAll();
-  loadDataFromSheet();
   setTaskFilter('all');
-  loadTasksFromSheet();
 };
 </script>
 </body>
