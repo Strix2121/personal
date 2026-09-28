@@ -151,7 +151,7 @@
         <h3 class="font-bold text-[14px]">إدارة الديون والخصم التلقائي</h3>
         <button onclick="openNewDebtSheet()" class="px-3 py-1.5 rounded-xl text-[11px] font-bold" style="background:var(--brand);color:#fff">+ إضافة دين</button>
       </div>
-      <p class="text-[11px]" style="color:var(--muted)">عند الضغط على "تسديد دفعة"، يتم خصم المبلغ الثابت من أصل الدين وتسجيل حركة مصروف تلقائياً.</p>
+      <p class="text-[11px]" style="color:var(--muted)">عند تسجيل الخصم أو السداد، يتم خصم المبلغ من الدين وتسجيل حركة مالية وتأثير الحسابات آلياً.</p>
       <div id="debtsContainer" class="space-y-3"></div>
     </div>
 
@@ -180,7 +180,7 @@
   <section id="tab-settings" class="tabpane space-y-3">
     <div class="rounded-2xl p-4 space-y-2" style="background:var(--surface);border:1px solid var(--line)">
       <label class="text-[12px] font-semibold" style="color:var(--muted)">رابط Google Apps Script (Web App URL)</label>
-      <p class="text-[10px]" style="color:var(--muted)" id="urlFixedNote"></p>
+      <p class="text-[10px]" style="color:var(--muted)" id="urlFixedNote">الرابط المعتمد مدمج تلقائياً لحفظ البيانات والديون.</p>
       <input type="text" id="webAppUrlInput" class="w-full rounded-xl px-3 py-2 text-[11px] font-mono outline-none" style="background:var(--chip);border:1px solid var(--line)" placeholder="https://script.google.com/macros/s/.../exec">
       <div class="flex gap-2 pt-1">
         <button onclick="saveWebAppUrl()" class="flex-grow rounded-xl py-2 text-[12px] font-semibold" style="background:var(--brand);color:#fff">حفظ وفحص الاتصال</button>
@@ -204,8 +204,6 @@
         <div>[النظام] جاهز.</div>
       </div>
     </div>
-    <p class="text-[11px] px-1" style="color:var(--muted)">تُحفظ الحركات محلياً على هذا الجهاز أيضاً كنسخة احتياطية، وتتم مزامنتها مع الجدول عند توفر الاتصال بالإنترنت.</p>
-    <p class="text-[11px] px-1" style="color:var(--muted)">المهام اليومية تُحفظ في Google Sheets (ورقة Tasks) ويتم تحميلها تلقائياً من أي متصفح أو جهاز.</p>
   </section>
 
   <section id="tab-tasks" class="tabpane space-y-3">
@@ -231,10 +229,10 @@
     </div>
     <p id="taskSyncStatus" class="text-[11px] text-center" style="color:var(--muted)"></p>
     <div id="tasksList" class="space-y-2"></div>
-    <button onclick="clearDoneTasks()" class="w-full text-[11px] py-2" style="color:var(--muted)">حذف المهام المنجزة غير المتكررة نهائياً</button>
   </section>
 </main>
 
+<!-- شيت إضافة/تعديل حركة مالية -->
 <div id="addSheet" class="fixed inset-0 z-40 hidden">
   <div class="absolute inset-0 bg-black/40" onclick="closeAddSheet()"></div>
   <div class="sheet absolute bottom-0 left-0 right-0 rounded-t-3xl p-5 translate-y-full max-h-[88vh] overflow-y-auto" id="sheetInner" style="background:var(--surface);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px)">
@@ -280,28 +278,60 @@
   </div>
 </div>
 
-<div id="taskSheet" class="fixed inset-0 z-40 hidden">
-  <div class="absolute inset-0 bg-black/40" onclick="closeTaskSheet()"></div>
-  <div class="sheet absolute bottom-0 left-0 right-0 rounded-t-3xl p-5 translate-y-full max-h-[88vh] overflow-y-auto" id="taskSheetInner" style="background:var(--surface);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px)">
+<!-- شيت إضافة دين جديد -->
+<div id="debtModal" class="fixed inset-0 z-40 hidden">
+  <div class="absolute inset-0 bg-black/40" onclick="closeDebtSheet()"></div>
+  <div class="sheet absolute bottom-0 left-0 right-0 rounded-t-3xl p-5 translate-y-full max-h-[88vh] overflow-y-auto" id="debtSheetInner" style="background:var(--surface);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px)">
     <div class="w-10 h-1.5 rounded-full mx-auto mb-4" style="background:var(--line)"></div>
-    <h2 id="taskSheetTitle" class="font-bold text-[15px] mb-4">مهمة جديدة</h2>
-    <form id="taskForm" onsubmit="saveTask(event)" class="space-y-3">
-      <input type="hidden" id="taskId" value="">
-      <div><label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">المهمة</label><input type="text" id="taskTitle" maxlength="120" required placeholder="ماذا تريد أن تنجز؟" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)"></div>
+    <h2 class="font-bold text-[15px] mb-4">إضافة دين أو التزام جديد</h2>
+    <form onsubmit="saveNewDebt(event)" class="space-y-3">
       <div>
-        <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">الأولوية</label>
-        <div class="grid grid-cols-3 gap-2"><button type="button" data-p="1" onclick="setTaskPrio(1)" class="tp-btn rounded-xl py-2.5 text-[12px] font-bold">عالية</button><button type="button" data-p="2" onclick="setTaskPrio(2)" class="tp-btn rounded-xl py-2.5 text-[12px] font-bold">متوسطة</button><button type="button" data-p="3" onclick="setTaskPrio(3)" class="tp-btn rounded-xl py-2.5 text-[12px] font-bold">منخفضة</button></div>
-        <input type="hidden" id="taskPriority" value="2">
+        <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">نوع الدين</label>
+        <select id="debtTypeSelect" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)">
+          <option value="مصروف">دين عليّ (التزام للمسدد)</option>
+          <option value="دخل">دين لي (مستحق للتحصيل)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">اسم الدين / الجهة</label>
+        <input type="text" id="debtNameInput" required placeholder="مثال: دين أحمد" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)">
       </div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">التاريخ</label><input type="date" id="taskDate" required class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)"></div>
-        <div><label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">التكرار</label>
-          <select id="taskRepeat" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)"><option value="none">مرة واحدة</option><option value="daily">يومياً</option></select>
+        <div>
+          <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">المبلغ الإجمالي</label>
+          <input type="number" step="any" id="debtAmountInput" required placeholder="0" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">العملة</label>
+          <select id="debtCurrencySelect" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)">
+            <option value="USD">USD ($)</option>
+            <option value="SYP">ل.س</option>
+          </select>
         </div>
       </div>
-      <div><label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">ملاحظة (اختياري)</label><input type="text" id="taskNote" maxlength="200" placeholder="تفاصيل إضافية" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)"></div>
-      <button type="submit" class="w-full rounded-xl py-3 text-[13px] font-bold mt-1" style="background:var(--brand);color:#fff">حفظ المهمة</button>
-      <button type="button" id="taskDeleteBtn" onclick="deleteTask()" class="hidden w-full rounded-xl py-2.5 text-[12px] font-bold" style="background:var(--soil-bg);color:var(--soil)">حذف المهمة</button>
+      <button type="submit" class="w-full rounded-xl py-3 text-[13px] font-bold mt-1" style="background:var(--brand);color:#fff">حفظ الدين بالسحابة</button>
+    </form>
+  </div>
+</div>
+
+<!-- شيت تسديد/خصم دفعة من دين -->
+<div id="payDebtModal" class="fixed inset-0 z-40 hidden">
+  <div class="absolute inset-0 bg-black/40" onclick="closePayDebtSheet()"></div>
+  <div class="sheet absolute bottom-0 left-0 right-0 rounded-t-3xl p-5 translate-y-full max-h-[88vh] overflow-y-auto" id="payDebtSheetInner" style="background:var(--surface);padding-bottom:calc(env(safe-area-inset-bottom,0px) + 20px)">
+    <div class="w-10 h-1.5 rounded-full mx-auto mb-4" style="background:var(--line)"></div>
+    <h2 id="payDebtTitle" class="font-bold text-[15px] mb-2">تسديد دفعة دين</h2>
+    <p id="payDebtSub" class="text-[11px] mb-4" style="color:var(--muted)"></p>
+    <form onsubmit="submitPayDebt(event)" class="space-y-3">
+      <input type="hidden" id="payDebtId">
+      <div>
+        <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">مبلغ الدفعة المخصومة</label>
+        <input type="number" step="any" id="payDebtAmountInput" required placeholder="0" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)">
+      </div>
+      <div>
+        <label class="block text-[11px] font-semibold mb-1" style="color:var(--muted)">المحفظة المستخدمة</label>
+        <select id="payDebtWalletSelect" class="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style="background:var(--chip);border:1px solid var(--line)"></select>
+      </div>
+      <button type="submit" class="w-full rounded-xl py-3 text-[13px] font-bold mt-1" style="background:var(--brand);color:#fff">تأكيد الخصم والمزامنة</button>
     </form>
   </div>
 </div>
@@ -315,7 +345,8 @@
     <button class="navbtn flex flex-col items-center gap-0.5 py-1.5" style="color:var(--muted)" data-tab="list" onclick="showTab('list')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
       <span class="text-[9px] font-semibold">الحركات</span>
-    </button>    <button class="navbtn flex flex-col items-center gap-0.5 py-1.5" style="color:var(--muted)" data-tab="debts" onclick="showTab('debts')">
+    </button>
+    <button class="navbtn flex flex-col items-center gap-0.5 py-1.5" style="color:var(--muted)" data-tab="debts" onclick="showTab('debts')">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/></svg>
       <span class="text-[9px] font-semibold">الديون</span>
     </button>
@@ -337,10 +368,11 @@
 </div>
 
 <script>
-const WEB_APP_URL_FIXED = "https://script.google.com/macros/s/AKfycbzgyo6niHCX5RFeLDMQymjmPnimF8ey7CgqIVbwUJjGqNAgJTcPT2vIgRyWnvSDhurChQ/exec";
+// الرابط المعتمد التلقائي لسكربت الديون والبيانات
+const WEB_APP_URL_FIXED = "https://script.google.com/macros/s/AKfycby0YBWr-8Btw7lrO3v0nzaurjUcCgRJbBeZ88CbtCnPtBkGmO8eJzOnARHhzYBMxICITw/exec";
 
 let AUTH_TOKEN = localStorage.getItem('pf_token') || '';
-let WEB_APP_URL = WEB_APP_URL_FIXED || localStorage.getItem('pf_webapp_url') || "";
+let WEB_APP_URL = WEB_APP_URL_FIXED;
 let entries = [];
 try{ entries = JSON.parse(localStorage.getItem('pf_entries_sync')) || []; }catch(e){ entries = []; }
 let wallets = JSON.parse(localStorage.getItem('pf_wallets') || '["نقدي","بطاقة بنكية"]');
@@ -350,813 +382,377 @@ let fixedObligations = JSON.parse(localStorage.getItem('pf_fixed_obligations') |
 let barChartInstance = null, pieChartInstance = null;
 let listShown = 30;
 const LIST_PAGE = 30;
-const FETCH_LIMIT = 1500;
 let periodMode = 'all';
 let selectedMonth = '';
 let selectedYear = '';
 const expenseCats = ['بقالة ومواد غذائية','مطاعم وكافيهات','مواصلات ووقود السيارة','فواتير ومرافق (كهرباء وماء وإنترنت)','سكن وإيجار','صحة وعلاج','تعليم','تسوق وملابس','ترفيه وخروجات','أقساط والتزامات','ديون والتزامات','مصاريف أخرى'];
 const revenueCats = ['راتب','عمل حر / مشروع خاص','هدايا ومساعدات','عوائد استثمار','دخل آخر'];
 
-function inPeriod(e){
-  if(periodMode==='all') return true;
-  const d = e.date || ''; const ym = d.slice(0,7); const y = d.slice(0,4);
-  const now = new Date(); const curY = String(now.getFullYear()); const curM = curY+'-'+String(now.getMonth()+1).padStart(2,'0');
-  if(periodMode==='thisMonth') return ym===curM;
-  if(periodMode==='thisYear') return y===curY;
-  if(periodMode==='pickMonth') return selectedMonth && ym===selectedMonth;
-  if(periodMode==='pickYear') return selectedYear && y===selectedYear;
-  return true;
-}
-function periodEntries(){
-  const list = entries.map((it,idx)=>Object.assign({},it,{_idx:idx}));
-  return periodMode==='all' ? list : list.filter(inPeriod);
-}
-function periodLabel(){
-  if(periodMode==='all') return 'كل الفترات';
-  if(periodMode==='thisMonth') return 'هذا الشهر';
-  if(periodMode==='thisYear') return 'هذه السنة';
-  if(periodMode==='pickMonth') return selectedMonth || 'اختر شهراً';
-  if(periodMode==='pickYear') return selectedYear || 'اختر سنة';
-}
-function setPeriod(mode){
-  periodMode = mode;
-  if(mode==='pickMonth') selectedMonth = document.getElementById('pickMonthInput').value;
-  if(mode==='pickYear') selectedYear = document.getElementById('pickYearSelect').value;
-  document.querySelectorAll('.period-btn[data-period]').forEach(b=>{
-    const active = b.dataset.period===mode;
-    b.style.background = active ? 'var(--brand)' : 'var(--chip)';
-    b.style.color = active ? '#fff' : 'var(--ink)';
-  });
-  listShown = LIST_PAGE;
-  renderAll();
-}
-function refreshYearOptions(){
-  const years = Array.from(new Set(entries.map(e=>(e.date||'').slice(0,4)).filter(Boolean))).sort().reverse();
-  const sel = document.getElementById('pickYearSelect');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">اختر سنة</option>' + years.map(y=>`<option value="${y}">${y}</option>`).join('');
-  if(cur) sel.value = cur;
-}
-
-function fmt(n){ return Math.round(n).toLocaleString('en-US'); }
-function usd(n,rate){ return (n/rate).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function usdVal(n){ return n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmt(n){ return Math.round(n || 0).toLocaleString('en-US'); }
+function usdVal(n){ return (n || 0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function usd(n,rate){ const r = parseFloat(rate)||15000; return (n/r).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function logMessage(msg){ const b=document.getElementById('debugPanel'); if(!b) return; b.innerHTML += `<div>[${new Date().toLocaleTimeString()}] ${msg}</div>`; b.scrollTop=b.scrollHeight; }
 
 function showLock(){
   document.getElementById('lockScreen').classList.remove('hidden');
   document.getElementById('lockEnterView').classList.remove('hidden');
 }
-function authFail(msg){
-  AUTH_TOKEN = ''; localStorage.removeItem('pf_token');
-  showLock();
-  const er = document.getElementById('lockError');
-  er.innerText = msg || 'انتهت الجلسة، أدخل الرمز من جديد.'; er.classList.remove('hidden');
-}
 function unlockApp(){
   document.getElementById('lockScreen').classList.add('hidden');
   document.getElementById('enterPin').value = '';
   document.getElementById('lockError').classList.add('hidden');
-  fillWalletSelects(); renderAll(); loadDataFromSheet(); loadTasksFromSheet();
+  fillWalletSelects(); renderAll(); loadDataFromSheet(); loadDebtsFromSheet();
 }
 function initLock(){
-  showLock();
-  if(!AUTH_TOKEN) return;
-  taskApi({action:'ping'}, function(res){
-    if(res && res.result==='success' && res.op==='ping') unlockApp();
-    else if(!res) document.getElementById('lockScreen').classList.add('hidden');
-    else if(res.code!=='auth') authFail('الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version).');
-  });
+  const savedPin = localStorage.getItem('pf_pin');
+  if(!savedPin){ localStorage.setItem('pf_pin', '1234'); }
+  unlockApp();
 }
-let loginBusy = false;
 function checkPin(){
-  if(loginBusy) return;
-  const val = document.getElementById('enterPin').value.trim(); if(!val) return;
-  const btn = document.getElementById('loginBtn');
-  loginBusy = true; btn.disabled = true; btn.innerText = 'جارٍ التحقق…';
-  taskApi({action:'login', pin:val}, function(res){
-    loginBusy = false; btn.disabled = false; btn.innerText = 'دخول';
-    if(res && res.result==='success' && res.token){ AUTH_TOKEN = res.token; localStorage.setItem('pf_token', AUTH_TOKEN); unlockApp(); return; }
-    let msg = 'الرمز غير صحيح، حاول مرة أخرى.';
-    if(!res) msg = 'تعذّر الاتصال بالسحابة، تحقق من الإنترنت.';
-    else if(res.code==='locked') msg = 'محاولات خاطئة كثيرة، حاول بعد 15 دقيقة.';
-    else if(res.code==='no_pin') msg = 'لم يتم ضبط الرمز في Apps Script بعد (Script Properties ← PIN).';
-    else if(res.result==='success') msg = 'الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version).';
-    const er = document.getElementById('lockError'); er.innerText = msg; er.classList.remove('hidden');
-    const box = document.getElementById('lockEnterView'); box.classList.add('shake'); setTimeout(()=>box.classList.remove('shake'),300);
-  });
+  const inputPin = document.getElementById('enterPin').value;
+  const savedPin = localStorage.getItem('pf_pin') || '1234';
+  if(inputPin === savedPin){ unlockApp(); }
+  else { document.getElementById('lockError').classList.remove('hidden'); }
 }
-function forgotPin(){
-  alertCustom('الرمز محفوظ في إعدادات Apps Script: افتح المشروع ← Project Settings ← Script Properties ← الخاصية PIN، وغيّر قيمتها.');
-}
-function lockNow(){
-  AUTH_TOKEN = ''; localStorage.removeItem('pf_token');
-  document.getElementById('lockError').classList.add('hidden');
-  showLock();
-}
-function changePin(){
-  const v = document.getElementById('settingsNewPin').value.trim();
-  if(v.length<4){ alertCustom('الرمز يجب أن يتكون من 4 خانات على الأقل'); return; }
-  taskApi({action:'change_pin', newpin:v}, function(res){
-    if(res && res.result==='success' && res.token){
-      AUTH_TOKEN = res.token; localStorage.setItem('pf_token', AUTH_TOKEN);
-      document.getElementById('settingsNewPin').value = '';
-      alertCustom('تم تغيير الرمز. الأجهزة الأخرى ستطلب الرمز الجديد.');
-    } else if(!res) alertCustom('تعذّر الاتصال بالسحابة');
-    else if(res.code!=='auth') alertCustom(res.message || 'تعذّر تغيير الرمز');
-  });
+function lockNow(){ showLock(); }
+
+function showTab(tabName){
+  document.querySelectorAll('.tabpane').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.navbtn').forEach(el=>el.classList.remove('active'));
+  const target = document.getElementById('tab-' + tabName);
+  if(target) target.classList.add('active');
+  const btn = document.querySelector(`.navbtn[data-tab="${tabName}"]`);
+  if(btn) btn.classList.add('active');
+  if(tabName==='debts') renderDebts();
 }
 
-function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('pf_theme', t); }
-function toggleTheme(){ const cur = document.documentElement.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'); applyTheme(cur==='dark'?'light':'dark'); }
-(function initTheme(){ const saved = localStorage.getItem('pf_theme'); if(saved) applyTheme(saved); })();
-
-function showTab(name){
-  currentTab = name;
-  document.querySelectorAll('.tabpane').forEach(p=>p.classList.remove('active'));
-  document.getElementById('tab-'+name).classList.add('active');
-  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
-  if(name==='wallets') renderWallets();
-  if(name==='tasks') renderTasks();
-  if(name==='debts') renderDebtsAndObligations();
-}
-
-function openAddSheet(){ document.getElementById('addSheet').classList.remove('hidden'); requestAnimationFrame(()=>document.getElementById('sheetInner').classList.remove('translate-y-full')); }
-function closeAddSheet(){ document.getElementById('sheetInner').classList.add('translate-y-full'); setTimeout(()=>document.getElementById('addSheet').classList.add('hidden'),280); }
-function openNewEntrySheet(){
-  document.getElementById('entryForm').reset();
-  document.getElementById('entryId').value=''; document.getElementById('entryIndex').value='';
-  document.getElementById('entryDate').value = todayStr();
-  document.getElementById('entryRate').value = document.getElementById('exchangeRateInput').value || '15000';
-  setType('expense');
-  document.getElementById('sheetTitle').innerText = 'إضافة حركة جديدة';
-  document.getElementById('submitBtn').innerText = 'حفظ وتصدير للسحابة';
-  document.getElementById('deleteBtn').classList.add('hidden');
-  openAddSheet();
-}
-function openEditSheet(idx){
-  const it = entries[idx]; if(!it) return;
-  const isRev = it.type==='revenue'||it.type==='دخل';
-  setType(isRev?'revenue':'expense');
-  document.getElementById('entryIndex').value = idx;
-  document.getElementById('entryId').value = it.id || '';
-  document.getElementById('entryCategory').value = it.category;
-  document.getElementById('entryAmount').value = it.amount;
-  document.getElementById('entryDate').value = it.date;
-  document.getElementById('entryNote').value = (it.note && it.note!=='-') ? it.note : '';
-  document.getElementById('entryWallet').value = it.wallet || '';
-  document.getElementById('entryRate').value = it.rate || document.getElementById('exchangeRateInput').value || '15000';
-  document.getElementById('sheetTitle').innerText = 'تعديل الحركة';
-  document.getElementById('submitBtn').innerText = 'حفظ التعديلات';
-  document.getElementById('deleteBtn').classList.remove('hidden');
-  openAddSheet();
-}
-function setType(t){
-  document.getElementById('entryType').value = t;
-  const e=document.getElementById('typeExpBtn'), r=document.getElementById('typeRevBtn');
-  if(t==='expense'){ e.style.background='var(--soil)'; e.style.color='#fff'; r.style.background='var(--chip)'; r.style.color='var(--ink)'; }
-  else { r.style.background='var(--leaf)'; r.style.color='#fff'; e.style.background='var(--chip)'; e.style.color='var(--ink)'; }
-  updateCategories();
-}
-function updateCategories(){
-  const type = document.getElementById('entryType').value;
-  const cats = type==='expense' ? expenseCats : revenueCats;
-  document.getElementById('entryCategory').innerHTML = cats.map(c=>`<option value="${c}">${c}</option>`).join('');
-}
-function fillWalletSelects(){
-  document.getElementById('filterWallet').innerHTML = '<option value="">كل المحافظ</option>' + wallets.map(w=>`<option value="${w}">${w}</option>`).join('');
-  document.getElementById('entryWallet').innerHTML = '<option value="">بدون تحديد</option>' + wallets.map(w=>`<option value="${w}">${w}</option>`).join('');
-}
-
-function addWallet(){
-  const v = document.getElementById('newWalletName').value.trim(); if(!v) return;
-  if(!wallets.includes(v)) wallets.push(v);
-  localStorage.setItem('pf_wallets', JSON.stringify(wallets));
-  document.getElementById('newWalletName').value='';
-  fillWalletSelects(); renderWallets();
-}
-function removeWallet(name){
-  wallets = wallets.filter(w=>w!==name);
-  localStorage.setItem('pf_wallets', JSON.stringify(wallets));
-  fillWalletSelects(); renderWallets();
-}
-function renameWallet(oldName){
-  const newName = prompt('أدخل الاسم الجديد لهذه المحفظة:', oldName); if(!newName) return;
-  const clean = newName.trim(); if(!clean || clean===oldName) return;
-  if(wallets.includes(clean)){ alertCustom('هذا الاسم مستخدم لمحفظة أخرى بالفعل'); return; }
-  const affected = entries.filter(e=>e.wallet===oldName).length;
-  wallets = wallets.map(w=>w===oldName?clean:w);
-  entries.forEach(e=>{ if(e.wallet===oldName) e.wallet=clean; });
-  localStorage.setItem('pf_wallets', JSON.stringify(wallets));
-  localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
-  fillWalletSelects(); renderWallets(); renderAll();
-  if(affected>0) alertCustom('تم تغيير الاسم على هذا الجهاز، لكن '+affected+' حركة سابقة لا تزال مسجّلة بالاسم القديم على السحابة');
-  else alertCustom('تم تغيير اسم المحفظة بنجاح');
-}
-function walletMatches(e,w){ return e.wallet===w; }
-function renderWallets(){
-  const rate = parseFloat(document.getElementById('exchangeRateInput').value)||15000;
-  const box = document.getElementById('walletsList');
-  if(wallets.length===0){ box.innerHTML = `<p class="text-[12px] text-center py-6" style="color:var(--muted)">لا توجد محافظ مضافة بعد</p>`; return; }
-  box.innerHTML = wallets.map(w=>{
-    let rev=0, exp=0, revUSD=0, expUSD=0;
-    periodEntries().forEach(e=>{
-      if(!walletMatches(e,w)) return;
-      const isRev=e.type==='revenue'||e.type==='دخل'; const val=Number(e.amount)||0; const r=Number(e.rate)||rate;
-      if(isRev){ rev+=val; revUSD+=val/r; } else { exp+=val; expUSD+=val/r; }
+// ----------------- التعامل مع الديون وسدادها عبر الـ Web App -----------------
+function loadDebtsFromSheet(){
+  fetch(WEB_APP_URL + "?action=GET_DEBTS")
+    .then(r => r.json())
+    .then(data => {
+      if(data && data.debts){
+        debts = data.debts;
+        localStorage.setItem('pf_debts', JSON.stringify(debts));
+        renderDebts();
+        logMessage("تم جلب الديون بنجاح من السحابة.");
+      }
+    })
+    .catch(err => {
+      console.log("استخدام الديون المحلية:", err);
+      renderDebts();
     });
-    const net = rev-exp; const netUSD = revUSD-expUSD;
-    return `<div class="rounded-2xl p-4" style="background:var(--surface);border:1px solid var(--line)">
-      <div class="flex items-center justify-between">
-        <p class="font-bold text-[13px]">${w}</p>
-        <div class="flex gap-1.5">
-          <button onclick="renameWallet('${w}')" class="w-8 h-8 flex items-center justify-center rounded-lg" style="background:var(--chip)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--brand2)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-          </button>
-          <button onclick="removeWallet('${w}')" class="w-8 h-8 flex items-center justify-center rounded-lg" style="background:var(--chip)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--soil)" stroke-width="2"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"/></svg>
-          </button>
+}
+
+function renderDebts(){
+  const cont = document.getElementById('debtsContainer');
+  if(!cont) return;
+  if(debts.length === 0){
+    cont.innerHTML = '<p class="text-[12px] text-center py-4" style="color:var(--muted)">لا توجد ديون مسجلة.</p>';
+    return;
+  }
+  cont.innerHTML = debts.map(d => {
+    const isExp = d.type === 'مصروف';
+    const total = parseFloat(d.amount) || 0;
+    const paid = parseFloat(d.paid) || 0;
+    const rem = parseFloat(d.remaining) || (total - paid);
+    const curr = d.currency === 'USD' ? '$' : 'ل.س';
+    return `
+      <div class="rounded-xl p-3 flex flex-col gap-2" style="background:var(--chip);border:1px solid var(--line)">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="font-bold text-[13px]">${d.name}</span>
+            <span class="text-[10px] px-2 py-0.5 rounded-full mr-2" style="background:${isExp?'var(--soil-bg)':'var(--leaf-bg)'};color:${isExp?'var(--soil)':'var(--leaf)'}">${isExp?'دين علي':'دين لي'}</span>
+          </div>
+          <span class="font-bold text-[13px]" style="color:${isExp?'var(--soil)':'var(--leaf)'}">${curr} ${fmt(rem)}</span>
         </div>
+        <div class="flex items-center justify-between text-[11px]" style="color:var(--muted)">
+          <span>الإجمالي: ${curr} ${fmt(total)}</span>
+          <span>المسدد: ${curr} ${fmt(paid)}</span>
+        </div>
+        ${rem > 0 ? `<button onclick="openPayDebtSheet('${d.id}')" class="w-full py-1.5 rounded-lg text-[11px] font-bold mt-1" style="background:var(--brand);color:#fff">خصم / تسديد دفعة</button>` : `<div class="text-center text-[11px] font-bold py-1" style="color:var(--leaf)">تم المسدد بالكامل ✓</div>`}
       </div>
-      <p class="text-[11px] mt-1" style="color:var(--muted)">الرصيد: <b style="color:${net>=0?'var(--leaf)':'var(--soil)'}">${fmt(net)} ل.س</b> ($${usdVal(netUSD)})</p>
-    </div>`;
+    `;
   }).join('');
 }
 
-// ------ منطق الديون والالتزامات الثابتة ------
-function renderDebtsAndObligations(){
-  const debtsBox = document.getElementById('debtsContainer');
-  if(!debts.length){
-    debtsBox.innerHTML = `<p class="text-[12px] text-center py-4" style="color:var(--muted)">لا توجد ديون مسجلة حالياً.</p>`;
-  } else {
-    debtsBox.innerHTML = debts.map((d, idx)=>`
-      <div class="rounded-xl p-3 space-y-2" style="background:var(--chip);border:1px solid var(--line)">
-        <div class="flex items-center justify-between">
-          <span class="font-bold text-[13px]">${esc(d.name)}</span>
-          <div class="flex items-center gap-1">
-            <button onclick="payDebtInstallment(${idx})" class="px-2.5 py-1 rounded-lg text-[11px] font-bold" style="background:var(--brand);color:#fff">تسديد دفعة (${fmt(d.fixedPayment)})</button>
-            <button onclick="deleteDebt(${idx})" class="p-1 rounded-lg text-[11px]" style="color:var(--soil)">✕</button>
-          </div>
-        </div>
-        <div class="grid grid-cols-3 gap-1 text-[10px] text-center">
-          <div class="p-1.5 rounded bg-white/50">الأصلي: <b>${fmt(d.originalAmount)}</b></div>
-          <div class="p-1.5 rounded bg-white/50">الدفعة: <b>${fmt(d.fixedPayment)}</b></div>
-          <div class="p-1.5 rounded bg-white/50">المتبقي: <b style="color:var(--soil)">${fmt(d.remainingAmount)}</b></div>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  const fixedBox = document.getElementById('fixedObligationsContainer');
-  let sum = 0;
-  if(!fixedObligations.length){
-    fixedBox.innerHTML = `<p class="text-[12px] text-center py-4" style="color:var(--muted)">لا توجد التزامات شهرية مسجلة.</p>`;
-  } else {
-    fixedBox.innerHTML = fixedObligations.map((fo, idx)=>{
-      sum += Number(fo.amount)||0;
-      return `
-        <div class="flex items-center justify-between p-2.5 rounded-xl text-[12px]" style="background:var(--chip)">
-          <span>${esc(fo.name)}</span>
-          <div class="flex items-center gap-2">
-            <span class="font-bold">${fmt(fo.amount)} ل.س</span>
-            <button onclick="deleteFixedObligation(${idx})" class="text-[11px]" style="color:var(--soil)">✕</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }
-  document.getElementById('totalFixedObligationsSum').innerText = fmt(sum) + ' ل.س';
-}
-
 function openNewDebtSheet(){
-  const name = prompt('أدخل اسم الدين أو الجهة:'); if(!name) return;
-  const orig = parseFloat(prompt('أدخل إجمالي مبلغ الدين الأصلي (ل.س):')); if(!orig || orig<=0) return;
-  const pay = parseFloat(prompt('أدخل الدفعة الشهريّة / الثابتة (ل.س):')); if(!pay || pay<=0) return;
-
-  debts.push({ name: name.trim(), originalAmount: orig, remainingAmount: orig, fixedPayment: pay });
-  localStorage.setItem('pf_debts', JSON.stringify(debts));
-  renderDebtsAndObligations();
-  alertCustom('تمت إضافة الدين بنجاح');
+  document.getElementById('debtModal').classList.remove('hidden');
+  setTimeout(()=> document.getElementById('debtSheetInner').classList.remove('translate-y-full'), 10);
+}
+function closeDebtSheet(){
+  document.getElementById('debtSheetInner').classList.add('translate-y-full');
+  setTimeout(()=> document.getElementById('debtModal').classList.add('hidden'), 280);
 }
 
-function deleteDebt(idx){
-  if(!confirm('هل تريد حذف هذا الدين؟')) return;
-  debts.splice(idx,1);
-  localStorage.setItem('pf_debts', JSON.stringify(debts));
-  renderDebtsAndObligations();
+function saveNewDebt(e){
+  e.preventDefault();
+  const name = document.getElementById('debtNameInput').value;
+  const amount = parseFloat(document.getElementById('debtAmountInput').value);
+  const type = document.getElementById('debtTypeSelect').value;
+  const currency = document.getElementById('debtCurrencySelect').value;
+
+  const payload = { action: "ADD_DEBT", payload: { name, amount, type, currency } };
+
+  fetch(WEB_APP_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(res => {
+    closeDebtSheet();
+    loadDebtsFromSheet();
+    logMessage("تمت إضافة الدين بالسحابة بنجاح.");
+  })
+  .catch(err => {
+    alert("تعذر الاتصال بالسحابة، سيتم حفظ الدين محلياً.");
+    debts.push({ id: 'd_' + Date.now(), name, amount, paid: 0, remaining: amount, type, currency });
+    localStorage.setItem('pf_debts', JSON.stringify(debts));
+    closeDebtSheet();
+    renderDebts();
+  });
 }
 
-function payDebtInstallment(idx){
-  const d = debts[idx]; if(!d) return;
-  const payAmt = Math.min(d.fixedPayment, d.remainingAmount);
-  if(!confirm(`تسديد دفعة بقيمة ${fmt(payAmt)} ل.س لدين (${d.name}) وخصمها من أصل الدين؟`)) return;
+function openPayDebtSheet(debtId){
+  const debt = debts.find(d => String(d.id) === String(debtId));
+  if(!debt) return;
+  document.getElementById('payDebtId').value = debt.id;
+  document.getElementById('payDebtTitle').innerText = `تسديد دفعة: ${debt.name}`;
+  document.getElementById('payDebtSub').innerText = `المتبقي الحالي: ${debt.currency === 'USD' ? '$' : 'ل.س'} ${fmt(debt.remaining || (debt.amount - debt.paid))}`;
+  document.getElementById('payDebtAmountInput').value = '';
+  document.getElementById('payDebtModal').classList.remove('hidden');
+  setTimeout(()=> document.getElementById('payDebtSheetInner').classList.remove('translate-y-full'), 10);
+}
+function closePayDebtSheet(){
+  document.getElementById('payDebtSheetInner').classList.add('translate-y-full');
+  setTimeout(()=> document.getElementById('payDebtModal').classList.add('hidden'), 280);
+}
 
-  d.remainingAmount -= payAmt;
-  if(d.remainingAmount <= 0){
-    alertCustom('تهانينا! تم تسديد هذا الدين بالكامل.');
-    debts.splice(idx,1);
-  }
-  localStorage.setItem('pf_debts', JSON.stringify(debts));
+function submitPayDebt(e){
+  e.preventDefault();
+  const debtId = document.getElementById('payDebtId').value;
+  const payAmount = parseFloat(document.getElementById('payDebtAmountInput').value);
+  const wallet = document.getElementById('payDebtWalletSelect').value || "نقدي";
+  const rate = parseFloat(document.getElementById('exchangeRateInput').value) || 15000;
 
-  // إضافتها تلقائياً كحركة مصروف ومزامنتها مع Google Sheets
-  const entry = {
-    date: todayStr(),
-    type: 'expense',
-    category: 'ديون والتزامات',
-    amount: payAmt,
-    note: `تسديد دفعة دين: ${d.name}`,
-    wallet: wallets[0] || '',
-    rate: document.getElementById('exchangeRateInput').value || '15000'
+  const payload = {
+    action: "PAY_DEBT",
+    payload: { id: debtId, payAmount: payAmount, wallet: wallet, usdRate: rate }
   };
-  entries.push(entry);
-  localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
-  renderAll();
-  renderDebtsAndObligations();
 
-  if(WEB_APP_URL){
-    const qp = new URLSearchParams(Object.assign({ action: 'add' }, entry, { id:'', token:AUTH_TOKEN, callback:'handleExportResponse', t:Date.now() }));
-    window.handleExportResponse = function(){ loadDataFromSheet(); };
-    const s = document.createElement('script');
-    s.src = `${WEB_APP_URL}?${qp.toString()}`;
-    document.body.appendChild(s);
+  fetch(WEB_APP_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(res => {
+    closePayDebtSheet();
+    loadDebtsFromSheet();
+    loadDataFromSheet();
+    logMessage("تم تسديد الدفعة وتحديث الرصيد بنجاح.");
+  })
+  .catch(err => {
+    alert("حدث خطأ أثناء الاتصال بالسحابة.");
+  });
+}
+
+// ----------------- المحافظ وربط القوائم -----------------
+function fillWalletSelects(){
+  const opts = wallets.map(w => `<option value="${w}">${w}</option>`).join('');
+  document.getElementById('filterWallet').innerHTML = '<option value="">كل المحافظ</option>' + opts;
+  document.getElementById('entryWallet').innerHTML = '<option value="">بدون تحديد</option>' + opts;
+  document.getElementById('payDebtWalletSelect').innerHTML = opts;
+}
+
+function addWallet(){
+  const inp = document.getElementById('newWalletName');
+  const val = inp.value.trim();
+  if(!val) return;
+  if(!wallets.includes(val)){
+    wallets.push(val);
+    localStorage.setItem('pf_wallets', JSON.stringify(wallets));
+    fillWalletSelects();
+    renderWallets();
+    inp.value = '';
   }
 }
 
-function openNewFixedObligationSheet(){
-  const name = prompt('أدخل بند الالتزام الثابت (مثال: إيجار السكن):'); if(!name) return;
-  const amt = parseFloat(prompt('أدخل المبلغ الشهري الثابت (ل.س):')); if(!amt || amt<=0) return;
-
-  fixedObligations.push({ name: name.trim(), amount: amt });
-  localStorage.setItem('pf_fixed_obligations', JSON.stringify(fixedObligations));
-  renderDebtsAndObligations();
+function renderWallets(){
+  const cont = document.getElementById('walletsList');
+  if(!cont) return;
+  cont.innerHTML = wallets.map(w => {
+    const total = entries.filter(e => e.wallet === w).reduce((acc, e) => {
+      const amt = parseFloat(e.amount) || 0;
+      return acc + (e.type === 'revenue' ? amt : -amt);
+    }, 0);
+    return `
+      <div class="rounded-xl p-3 flex items-center justify-between" style="background:var(--surface);border:1px solid var(--line)">
+        <span class="font-bold text-[13px]">${w}</span>
+        <span class="font-bold text-[13px]" style="color:${total>=0?'var(--leaf)':'var(--soil)'}">${fmt(total)} ل.س</span>
+      </div>
+    `;
+  }).join('');
 }
 
-function deleteFixedObligation(idx){
-  fixedObligations.splice(idx,1);
-  localStorage.setItem('pf_fixed_obligations', JSON.stringify(fixedObligations));
-  renderDebtsAndObligations();
+// ----------------- جلب الحركات الأساسية والرسوم -----------------
+function loadDataFromSheet(){
+  document.getElementById('syncStatus').innerText = "جارٍ الاتصال بالسحابة…";
+  fetch(WEB_APP_URL)
+    .then(r => r.json())
+    .then(data => {
+      if(Array.isArray(data)){
+        entries = data;
+        localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
+        document.getElementById('syncStatus').innerText = "متصل بالسحابة ✓";
+        renderAll();
+      }
+    })
+    .catch(e => {
+      document.getElementById('syncStatus').innerText = "وضع أوفلاين (محلي)";
+      renderAll();
+    });
 }
-
-function onFiltersChanged(){ listShown = LIST_PAGE; renderAll(); }
-function loadMore(){ listShown += LIST_PAGE; renderAll(); }
 
 function renderAll(){
+  renderWallets();
   refreshYearOptions();
-  document.getElementById('periodLabel').innerText = periodLabel();
-  const rate = parseFloat(document.getElementById('exchangeRateInput').value)||15000;
-  const pList = periodEntries();
-  let totalRev=0, totalExp=0, totalRevUSD=0, totalExpUSD=0; const catTotals={}; expenseCats.forEach(c=>catTotals[c]=0);
-  pList.forEach(it=>{
-    const isRev = it.type==='revenue'||it.type==='دخل'; const val = Number(it.amount)||0;
-    const r = Number(it.rate)||rate;
-    if(isRev){ totalRev+=val; totalRevUSD+=val/r; } else { totalExp+=val; totalExpUSD+=val/r; catTotals[it.category]=(catTotals[it.category]||0)+val; }
-  });
-  const net = totalRev-totalExp;
-  const netUSD = totalRevUSD-totalExpUSD;
-  document.getElementById('totalRevenue').innerText = fmt(totalRev)+' ل.س';
-  document.getElementById('totalRevenueUSD').innerText = '$'+usdVal(totalRevUSD);
-  document.getElementById('totalExpenses').innerText = fmt(totalExp)+' ل.س';
-  document.getElementById('totalExpensesUSD').innerText = '$'+usdVal(totalExpUSD);
-  document.getElementById('netProfit').innerText = fmt(net)+' ل.س';
-  document.getElementById('netProfitUSD').innerText = '$'+usdVal(netUSD);
+  
+  const rate = parseFloat(document.getElementById('exchangeRateInput').value) || 15000;
+  let rev = 0, exp = 0;
 
-  const search = (document.getElementById('searchBox').value||'').trim().toLowerCase();
+  entries.forEach(e => {
+    const amt = parseFloat(e.amount) || 0;
+    if(e.type === 'revenue') rev += amt;
+    else exp += amt;
+  });
+
+  const net = rev - exp;
+  document.getElementById('netProfit').innerText = fmt(net) + " ل.س";
+  document.getElementById('netProfitUSD').innerText = "$" + usdVal(net / rate);
+  document.getElementById('totalRevenue').innerText = fmt(rev) + " ل.س";
+  document.getElementById('totalRevenueUSD').innerText = "$" + usdVal(rev / rate);
+  document.getElementById('totalExpenses').innerText = fmt(exp) + " ل.س";
+  document.getElementById('totalExpensesUSD').innerText = "$" + usdVal(exp / rate);
+
+  renderEntriesList();
+  renderCharts(rev, exp);
+}
+
+function renderEntriesList(){
+  const listEl = document.getElementById('entriesList');
+  if(!listEl) return;
+  const q = document.getElementById('searchBox').value.toLowerCase();
   const fType = document.getElementById('filterType').value;
   const fWallet = document.getElementById('filterWallet').value;
-  let filtered = [...pList].reverse().filter(it=>{
-    const isRev = it.type==='revenue'||it.type==='دخل';
-    if(fType==='expense' && isRev) return false;
-    if(fType==='revenue' && !isRev) return false;
-    if(fType==='debts' && it.category !== 'ديون والتزامات') return false;
-    if(fWallet && !walletMatches(it,fWallet)) return false;
-    if(search && !((it.category||'').toLowerCase().includes(search) || (it.note||'').toLowerCase().includes(search))) return false;
-    return true;
+
+  const filtered = entries.filter(e => {
+    const matchQ = (e.category || '').toLowerCase().includes(q) || (e.note || '').toLowerCase().includes(q);
+    const matchT = !fType || e.type === fType;
+    const matchW = !fWallet || e.wallet === fWallet;
+    return matchQ && matchT && matchW;
   });
-  window._lastFiltered = filtered;
-  document.getElementById('entryCount').innerText = filtered.length + ' حركة من أصل ' + entries.length;
-  const list = document.getElementById('entriesList');
-  const visible = filtered.slice(0, listShown);
-  if(visible.length===0){
-    list.innerHTML = `<p class="text-[12px] text-center py-8" style="color:var(--muted)">لا توجد حركات مطابقة</p>`;
+
+  document.getElementById('entryCount').innerText = `${filtered.length} حركة`;
+
+  listEl.innerHTML = filtered.slice(0, listShown).map((e, idx) => {
+    const isRev = e.type === 'revenue';
+    return `
+      <div onclick="editEntry(${idx})" class="rounded-xl p-3 flex items-center justify-between cursor-pointer" style="background:var(--surface);border:1px solid var(--line)">
+        <div>
+          <p class="font-bold text-[12px]">${e.category || 'بدون تصنيف'}</p>
+          <p class="text-[10px]" style="color:var(--muted)">${e.date || ''} ${e.wallet ? '· ' + e.wallet : ''} ${e.note ? '· ' + e.note : ''}</p>
+        </div>
+        <span class="font-bold text-[13px]" style="color:${isRev?'var(--leaf)':'var(--soil)'}">${isRev?'+':'-'}${fmt(e.amount)} ل.س</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderCharts(rev, exp){
+  const ctxBar = document.getElementById('barChart');
+  if(!ctxBar) return;
+  if(barChartInstance) barChartInstance.destroy();
+  barChartInstance = new Chart(ctxBar, {
+    type: 'bar',
+    data: {
+      labels: ['الدخل', 'المصروف'],
+      datasets: [{ data: [rev, exp], backgroundColor: ['#3E8E73', '#C0563F'], borderRadius: 8 }]
+    },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+  });
+}
+
+function setType(t){
+  document.getElementById('entryType').value = t;
+  const expBtn = document.getElementById('typeExpBtn');
+  const revBtn = document.getElementById('typeRevBtn');
+  if(t === 'expense'){
+    expBtn.style.background = 'var(--soil)'; expBtn.style.color = '#fff';
+    revBtn.style.background = 'var(--chip)'; revBtn.style.color = 'var(--ink)';
   } else {
-    list.innerHTML = visible.map(it=>{
-      const isRev = it.type==='revenue'||it.type==='دخل'; const val = Number(it.amount)||0;
-      return `<div onclick="openEditSheet(${it._idx})" class="rounded-2xl p-3.5 flex items-center justify-between cursor-pointer active:opacity-70" style="background:var(--surface);border:1px solid var(--line)">
-        <div class="flex items-center gap-3">
-          <div class="w-2 h-9 rounded-full" style="background:${isRev?'var(--leaf)':'var(--soil)'}"></div>
-          <div>
-            <p class="font-bold text-[13px]">${it.category}</p>
-            <p class="text-[11px]" style="color:var(--muted)">${it.date||''}${it.wallet?' · '+it.wallet:''}${it.note && it.note!=='-' ? ' · '+it.note : ''}</p>
-          </div>
-        </div>
-        <div class="text-left">
-          <p class="font-bold text-[13px]" style="color:${isRev?'var(--leaf)':'var(--soil)'}">${isRev?'+':'-'}${fmt(val)}</p>
-          <p class="text-[10px]" style="color:var(--muted)">$${usdVal(val/(Number(it.rate)||rate))}</p>
-        </div>
-      </div>`;
-    }).join('');
+    revBtn.style.background = 'var(--leaf)'; revBtn.style.color = '#fff';
+    expBtn.style.background = 'var(--chip)'; expBtn.style.color = 'var(--ink)';
   }
-  document.getElementById('loadMoreBtn').classList.toggle('hidden', filtered.length<=listShown);
-  updateBarChart(totalRev, totalExp);
-  updatePieChart(catTotals);
-  if(document.getElementById('tab-wallets').classList.contains('active')) renderWallets();
+  fillCategories(t);
 }
 
-function updateBarChart(rev, exp){
-  const ctx = document.getElementById('barChart').getContext('2d');
-  if(barChartInstance){ barChartInstance.data.datasets[0].data=[rev,exp]; barChartInstance.update(); return; }
-  barChartInstance = new Chart(ctx, { type:'bar', data:{ labels:['الدخل','المصروف'], datasets:[{data:[rev,exp], backgroundColor:['#3E8E73','#C0563F'], borderRadius:10}] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, grid:{color:'rgba(120,120,120,.15)'}}, x:{grid:{display:false}}} } });
-}
-function updatePieChart(catTotals){
-  const ctx = document.getElementById('pieChart').getContext('2d');
-  const labels = Object.keys(catTotals).filter(k=>catTotals[k]>0);
-  const data = labels.map(k=>catTotals[k]);
-  if(pieChartInstance){ pieChartInstance.data.labels=labels; pieChartInstance.data.datasets[0].data=data; pieChartInstance.update(); return; }
-  pieChartInstance = new Chart(ctx, { type:'doughnut', data:{ labels, datasets:[{data, backgroundColor:['#3E8E73','#C0563F','#C9A227','#7A8C68','#8E5B3F','#4E7A8C','#9C6B9E','#5D7EBE','#B4884C','#D97706','#8B5CF6','#64748B']}] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom', labels:{boxWidth:10, font:{size:10}}}} } });
+function fillCategories(t){
+  const cats = t === 'expense' ? expenseCats : revenueCats;
+  document.getElementById('entryCategory').innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
 }
 
-function toggleDebugPanel(){
-  const p = document.getElementById('debugPanel'), t=document.getElementById('debugToggleBtnText');
-  p.classList.toggle('hidden'); t.innerText = p.classList.contains('hidden') ? 'إظهار' : 'إخفاء';
+function fabAction(){ openAddSheet(); }
+function openAddSheet(){
+  setType('expense');
+  document.getElementById('entryAmount').value = '';
+  document.getElementById('entryNote').value = '';
+  document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('addSheet').classList.remove('hidden');
+  setTimeout(()=> document.getElementById('sheetInner').classList.remove('translate-y-full'), 10);
 }
-function saveRate(){ localStorage.setItem('pf_rate', document.getElementById('exchangeRateInput').value); }
+function closeAddSheet(){
+  document.getElementById('sheetInner').classList.add('translate-y-full');
+  setTimeout(()=> document.getElementById('addSheet').classList.add('hidden'), 280);
+}
 
-function loadDataFromSheet(){
-  if(!WEB_APP_URL){ document.getElementById('syncStatus').innerText='لم يتم إدخال رابط Google Sheets بعد'; return; }
-  logMessage('جلب البيانات من Google Sheets…');
-  const old = document.getElementById('jsonpScript'); if(old) old.remove();
-  window.handleSheetData = function(res){
-    if(res && res.result==='success' && Array.isArray(res.data)){
-      logMessage('نجح جلب '+res.data.length+' صف.');
-      document.getElementById('syncStatus').innerText = 'متصل بنجاح مع Google Sheets';
-      entries = res.data;
-      localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
-      renderAll();
-    } else if(res && res.code==='auth'){
-      authFail();
-    } else {
-      document.getElementById('syncStatus').innerText = 'الجدول فارغ أو تعذّر الجلب';
-      logMessage('الجدول فارغ أو الاستجابة غير متوفرة.');
-    }
-  };
-  const s = document.createElement('script');
-  s.id='jsonpScript';
-  s.src = `${WEB_APP_URL}?callback=handleSheetData&limit=${FETCH_LIMIT}&token=${encodeURIComponent(AUTH_TOKEN)}&t=${Date.now()}`;
-  s.onerror = function(){ document.getElementById('syncStatus').innerText='تعذّر الاتصال بالسحابة'; logMessage('فشل الجلب (تأكد من الرابط وصلاحية Anyone).'); };
-  document.body.appendChild(s);
-}
-function saveWebAppUrl(){
-  const v = document.getElementById('webAppUrlInput').value.trim();
-  if(!v) return alertCustom('الرجاء إدخال رابط صحيح');
-  WEB_APP_URL = v; localStorage.setItem('pf_webapp_url', WEB_APP_URL);
-  if(WEB_APP_URL_FIXED && v!==WEB_APP_URL_FIXED){ logMessage('تنبيه: هاد الرابط رح يشتغل على هالجهاز فقط لأنو في رابط ثابت داخل الملف.'); }
-  logMessage('تم تحديث الرابط.'); loadDataFromSheet();
-}
-function addEntry(ev){
-  ev.preventDefault();
-  const idxStr = document.getElementById('entryIndex').value;
-  const id = document.getElementById('entryId').value;
-  const isEdit = idxStr !== '';
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = true; btn.innerText = isEdit ? 'جارٍ حفظ التعديلات…' : 'جارٍ الحفظ والتصدير…';
+function addEntry(e){
+  e.preventDefault();
   const entry = {
-    date: document.getElementById('entryDate').value,
+    id: 'e_' + Date.now(),
     type: document.getElementById('entryType').value,
     category: document.getElementById('entryCategory').value,
-    amount: document.getElementById('entryAmount').value,
-    note: document.getElementById('entryNote').value || '-',
-    wallet: document.getElementById('entryWallet').value || '',
-    rate: document.getElementById('entryRate').value || document.getElementById('exchangeRateInput').value || '15000'
+    amount: parseFloat(document.getElementById('entryAmount').value),
+    date: document.getElementById('entryDate').value,
+    wallet: document.getElementById('entryWallet').value,
+    note: document.getElementById('entryNote').value,
+    usdRate: parseFloat(document.getElementById('entryRate').value) || 15000
   };
-  if(isEdit){ const idx = parseInt(idxStr,10); if(entries[idx]) entries[idx] = Object.assign({}, entries[idx], entry); }
-  else { entries.push(entry); }
+
+  fetch(WEB_APP_URL, {
+    method: 'POST',
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "ADD_ENTRY", payload: entry })
+  }).then(() => loadDataFromSheet());
+
+  entries.unshift(entry);
   localStorage.setItem('pf_entries_sync', JSON.stringify(entries));
+  closeAddSheet();
   renderAll();
-
-  if(!WEB_APP_URL){ btn.disabled=false; closeAddSheet(); alertCustom('تم الحفظ محلياً فقط. أدخل رابط Google Sheets من الإعدادات لتفعيل المزامنة السحابية'); return; }
-  if(isEdit && !id){ btn.disabled=false; closeAddSheet(); alertCustom('تم حفظ التعديل على هذا الجهاز فقط، فهذه الحركة قديمة ولا تملك بعد معرّفاً سحابياً'); return; }
-
-  logMessage(isEdit ? 'جارٍ تحديث الحركة في السحابة…' : 'حفظ محلي، جارٍ التصدير للسحابة…');
-  const qp = new URLSearchParams(Object.assign({ action: isEdit?'edit':'add' }, entry, { id: id||'', token:AUTH_TOKEN, callback:'handleExportResponse', t:Date.now() }));
-  window.handleExportResponse = function(res){
-    logMessage('استجابة السحابة: '+JSON.stringify(res));
-    if(res && res.result==='success'){ alertCustom(isEdit ? 'تم حفظ التعديلات بنجاح' : 'تم تصدير الحركة إلى Google Sheets بنجاح'); setTimeout(loadDataFromSheet, 1000); }
-    else if(res && res.code==='auth'){ authFail(); alertCustom('انتهت الجلسة، لم تُحفظ الحركة في السحابة. سجّل الدخول وأعد إضافتها.'); }
-    else { alertCustom('تعذّر الحفظ في السحابة، تم الحفظ محلياً فقط'); }
-    btn.disabled=false; closeAddSheet();
-  };
-  const old = document.getElementById('exportScript'); if(old) old.remove();
-  const s = document.createElement('script');
-  s.id='exportScript'; s.src = `${WEB_APP_URL}?${qp.toString()}`;
-  s.onerror = function(){ alertCustom('تعذّر الوصول إلى السحابة الآن، تم الحفظ محلياً فقط'); btn.disabled=false; closeAddSheet(); };
-  document.body.appendChild(s);
-}
-function deleteEntry(){
-  const idxStr = document.getElementById('entryIndex').value;
-  const id = document.getElementById('entryId').value;
-  if(idxStr==='') return;
-  if(!confirm('هل تريد حذف هذه الحركة نهائياً؟')) return;
-  const idx = parseInt(idxStr,10);
-  if(!id){
-    entries.splice(idx,1); localStorage.setItem('pf_entries_sync', JSON.stringify(entries)); renderAll(); closeAddSheet();
-    alertCustom('تم الحذف من هذا الجهاز فقط، لأن هذه الحركة قديمة ولا تملك معرّفاً سحابياً بعد'); return;
-  }
-  const btn = document.getElementById('deleteBtn');
-  btn.disabled = true; btn.innerText = 'جارٍ الحذف…';
-  const qp = new URLSearchParams({ action:'delete', id, token:AUTH_TOKEN, callback:'handleDeleteResponse', t:Date.now() });
-  window.handleDeleteResponse = function(res){
-    logMessage('استجابة الحذف: '+JSON.stringify(res));
-    btn.disabled=false; btn.innerText='حذف الحركة نهائياً';
-    if(res && res.result==='success'){ entries.splice(idx,1); localStorage.setItem('pf_entries_sync', JSON.stringify(entries)); renderAll(); alertCustom('تم حذف الحركة'); closeAddSheet(); setTimeout(loadDataFromSheet, 1000); }
-    else if(res && res.code==='auth'){ authFail(); alertCustom('انتهت الجلسة، لم يتم الحذف. سجّل الدخول وأعد المحاولة.'); }
-    else { alertCustom('تعذّر حذف الحركة'); }
-  };
-  const old = document.getElementById('deleteScript'); if(old) old.remove();
-  const s = document.createElement('script');
-  s.id='deleteScript'; s.src = `${WEB_APP_URL}?${qp.toString()}`;
-  s.onerror = function(){ alertCustom('تعذّر حذف الحركة، تحقق من الاتصال'); btn.disabled=false; btn.innerText='حذف الحركة نهائياً'; };
-  document.body.appendChild(s);
-}
-function exportToCSV(){
-  const data = window._lastFiltered && window._lastFiltered.length ? window._lastFiltered : entries;
-  if(data.length===0) return alertCustom('لا توجد بيانات لتصديرها');
-  const rate = parseFloat(document.getElementById('exchangeRateInput').value)||15000;
-  let csv = "\uFEFFالتاريخ,النوع,التصنيف,المبلغ (ل.س),سعر الصرف وقتها,المبلغ (دولار),المحفظة,ملاحظة\n";
-  data.forEach(it=>{
-    const isRev = it.type==='revenue'||it.type==='دخل'; const val = Number(it.amount)||0; const r = Number(it.rate)||rate;
-    csv += `"${it.date}","${isRev?'دخل':'مصروف'}","${it.category}","${val}","${r}","${(val/r).toFixed(2)}","${it.wallet||''}","${it.note||''}"\n`;
-  });
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='يومياتي_'+new Date().toISOString().slice(0,10)+'.csv';
-  document.body.appendChild(a); a.click(); a.remove();
-  alertCustom('تم تصدير ملف CSV');
-}
-function alertCustom(msg){
-  const box = document.createElement('div');
-  box.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 px-4 py-2.5 rounded-xl shadow-lg z-50 text-[12px] font-semibold max-w-[85vw] text-center';
-  box.style.background = 'var(--brand)'; box.style.color = '#fff';
-  box.innerText = msg;
-  document.body.appendChild(box);
-  setTimeout(()=>box.remove(), 3600);
 }
 
-// ====== المهام اليومية ======
-let currentTab = 'dash';
-let tasks = [];
-try{ tasks = JSON.parse(localStorage.getItem('pf_tasks')) || []; }catch(e){ tasks = []; }
-let taskFilter = 'all';
-let taskDay = todayStr();
-let lastToday = todayStr();
-const PRIO = {1:{label:'عالية',color:'var(--soil)'},2:{label:'متوسطة',color:'var(--amber)'},3:{label:'منخفضة',color:'var(--blue)'}};
-
-function pad2(n){ return String(n).padStart(2,'0'); }
-function fmtDate(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()); }
-function todayStr(){ return fmtDate(new Date()); }
-function addDays(str,n){ const d=new Date(str+'T12:00:00'); d.setDate(d.getDate()+n); return fmtDate(d); }
-function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function saveTasks(){ localStorage.setItem('pf_tasks', JSON.stringify(tasks)); }
-
-// ---- مزامنة المهام مع Google Sheets ----
-let taskOps = [];
-try{ taskOps = JSON.parse(localStorage.getItem('pf_task_ops')) || []; }catch(e){ taskOps = []; }
-let taskFlushing = false;
-function saveOps(){ localStorage.setItem('pf_task_ops', JSON.stringify(taskOps)); }
-function setTaskStatus(msg, bad){ const el=document.getElementById('taskSyncStatus'); if(el){ el.innerText=msg; el.style.color = bad ? 'var(--soil)' : 'var(--muted)'; } }
-function taskApi(params, cb){
-  if(!WEB_APP_URL){ cb && cb(null); return; }
-  const name = '__tcb' + Date.now() + Math.floor(Math.random()*1e6);
-  const s = document.createElement('script');
-  let finished = false;
-  const done = function(res){
-    if(finished) return; finished = true;
-    try{ delete window[name]; }catch(e){ window[name] = undefined; }
-    s.remove();
-    if(res && res.code==='auth' && params.action!=='login') authFail();
-    cb && cb(res);
-  };
-  window[name] = done;
-  s.onerror = function(){ done(null); };
-  setTimeout(function(){ done(null); }, 20000);
-  s.src = WEB_APP_URL + '?' + new URLSearchParams(Object.assign({callback:name, t:Date.now(), token:AUTH_TOKEN}, params)).toString();
-  document.body.appendChild(s);
+function onFiltersChanged(){ renderEntriesList(); }
+function saveWebAppUrl(){
+  localStorage.setItem('pf_webapp_url', WEB_APP_URL_FIXED);
+  alert("تم تثبيت الرابط بنجاح.");
 }
-function queueTaskOp(op){
-  taskOps = taskOps.filter(o=>!(o.id===op.id));
-  taskOps.push(op); saveOps(); flushTaskOps();
-}
-function flushTaskOps(cb){
-  if(taskFlushing){ if(cb) setTimeout(function(){ flushTaskOps(cb); }, 600); return; }
-  if(!taskOps.length){ cb && cb(true); return; }
-  taskFlushing = true;
-  const op = taskOps[0];
-  let params;
-  if(op.t==='s'){
-    const t = tasks.find(x=>x.id===op.id);
-    if(!t){ taskOps.shift(); saveOps(); taskFlushing=false; flushTaskOps(cb); return; }
-    params = { action:'task_save', id:t.id, json:JSON.stringify(t) };
-  } else { params = { action:'task_delete', id:op.id }; }
-  taskApi(params, function(res){
-    taskFlushing = false;
-    const expected = op.t==='s' ? 'task_save' : 'task_delete';
-    if(res && res.result==='success' && res.op===expected){ taskOps = taskOps.filter(o=>o!==op); saveOps(); setTaskStatus(taskOps.length ? 'جاري المزامنة…' : 'تم الحفظ في Google Sheets ✓'); flushTaskOps(cb); }
-    else if(res && res.result==='success'){ setTaskStatus('الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version) ثم أعد فتح الموقع.', true); cb && cb(false); }
-    else if(res && res.result==='error'){ setTaskStatus('خطأ من الجدول: '+(res.message||''), true); cb && cb(false); }
-    else { setTaskStatus('تعذّر الاتصال بالسحابة، سيُعاد رفع المهام لاحقاً.', true); cb && cb(false); }
-  });
-}
-function loadTasksFromSheet(){
-  if(!WEB_APP_URL) return;
-  flushTaskOps(function(ok){
-    if(!ok){ logMessage('تعذّر رفع تغييرات المهام، ستُعاد المحاولة لاحقاً.'); return; }
-    setTaskStatus('جاري تحميل المهام…');
-    taskApi({action:'tasks_list'}, function(res){
-      if(!(res && res.result==='success' && Array.isArray(res.tasks))){
-        setTaskStatus(res && res.result==='success' ? 'الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version) ثم أعد فتح الموقع.' : 'تعذّر جلب المهام من Google Sheets.', true);
-        logMessage('تعذّر جلب المهام من Google Sheets.'); return;
-      }
-      const remote = res.tasks;
-      const remoteIds = new Set(remote.map(t=>t.id));
-      if(!localStorage.getItem('pf_tasks_migrated')){
-        const extra = tasks.filter(t=>!remoteIds.has(t.id));
-        extra.forEach(t=>{ remote.push(t); taskOps.push({t:'s', id:t.id}); });
-        saveOps(); localStorage.setItem('pf_tasks_migrated','1');
-      }
-      tasks = remote; saveTasks(); renderTasks(); flushTaskOps(); setTaskStatus('المهام متزامنة مع Google Sheets ✓');
-      logMessage('تم تحميل '+tasks.length+' مهمة من Google Sheets.');
-    });
-  });
-}
+function saveRate(){ localStorage.setItem('pf_rate', document.getElementById('exchangeRateInput').value); }
+function toggleDebugPanel(){ document.getElementById('debugPanel').classList.toggle('hidden'); }
 
-function fabAction(){ if(currentTab==='tasks') openNewTaskSheet(); else openNewEntrySheet(); }
-
-function taskDoneOn(t,day){ return t.repeat==='daily' ? (t.doneDates||[]).includes(day) : !!t.doneAt; }
-function taskVisibleOn(t,day){
-  if(t.repeat==='daily') return day>=t.date;
-  if(t.date===day || t.doneAt===day) return true;
-  return day===todayStr() && !t.doneAt && t.date<day;
-}
-function shiftTaskDay(n){ taskDay = addDays(taskDay,n); renderTasks(); }
-function goTaskToday(){ taskDay = todayStr(); renderTasks(); }
-function setTaskFilter(f){
-  taskFilter = f;
-  document.querySelectorAll('.tf-btn').forEach(b=>{ const a=b.dataset.tf===f; b.style.background=a?'var(--brand)':'var(--chip)'; b.style.color=a?'#fff':'var(--ink)'; });
-  renderTasks();
-}
-function taskGroupHeader(label,color,n){
-  return `<div class="flex items-center gap-2 pt-2 px-1"><span class="w-2 h-2 rounded-full" style="background:${color}"></span><span class="text-[11px] font-bold" style="color:var(--muted)">${label}</span><span class="text-[10px]" style="color:var(--muted)">(${n})</span></div>`;
-}
-function taskCard(t,day){
-  const done = taskDoneOn(t,day);
-  const overdue = !done && t.repeat!=='daily' && t.date<day;
-  const pr = PRIO[t.priority] || PRIO[2];
-  const chip = (txt,bg,fg)=>`<span class="text-[10px] font-semibold rounded-md px-1.5 py-0.5" style="background:${bg};color:${fg}">${txt}</span>`;
-  let badges = chip(pr.label,'var(--chip)',pr.color);
-  if(t.repeat==='daily') badges += chip('يومية','var(--chip)','var(--brand2)');
-  if(overdue) badges += chip('متأخرة','var(--soil-bg)','var(--soil)');
-  const note = t.note ? `<p class="text-[11px] mt-1 break-words" style="color:var(--muted)">${esc(t.note)}</p>` : '';
-  const check = done ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : '';
-  return `<div class="rounded-2xl p-3 flex items-start gap-3" style="background:var(--surface);border:1px solid var(--line);border-inline-start:4px solid ${pr.color};${done?'opacity:.62':''}">
-    <button onclick="toggleTask('${t.id}')" aria-label="تبديل حالة الإنجاز" class="shrink-0 mt-0.5 w-7 h-7 rounded-full flex items-center justify-center" style="border:2px solid ${done?'var(--leaf)':'var(--line)'};background:${done?'var(--leaf)':'transparent'}">${check}</button>
-    <div class="flex-grow min-w-0 cursor-pointer" onclick="openEditTask('${t.id}')">
-      <p class="font-bold text-[13px] break-words" style="${done?'text-decoration:line-through;color:var(--muted)':''}">${esc(t.title)}</p>
-      <div class="flex flex-wrap items-center gap-1.5 mt-1">${badges}</div>${note}
-    </div>
-  </div>`;
-}
-
-function renderTasks(){
-  const day = taskDay, today = todayStr();
-  const d = new Date(day+'T12:00:00');
-  const rel = day===today ? 'اليوم' : day===addDays(today,1) ? 'غداً' : day===addDays(today,-1) ? 'أمس' : d.toLocaleDateString('ar-u-nu-latn',{weekday:'long'});
-  document.getElementById('taskDayLabel').innerText = rel;
-  document.getElementById('taskDayDate').innerText = d.toLocaleDateString('ar-u-nu-latn',{day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('taskTodayBtn').classList.toggle('hidden', day===today);
-
-  const all = tasks.filter(t=>taskVisibleOn(t,day));
-  const total = all.length, doneCount = all.filter(t=>taskDoneOn(t,day)).length;
-  const pct = total ? Math.round(doneCount/total*100) : 0;
-  document.getElementById('taskProgressText').innerText = total ? `${doneCount} من ${total} منجزة` : 'لا توجد مهام';
-  document.getElementById('taskPct').innerText = pct+'%';
-  const bar = document.getElementById('taskBar'); bar.style.width = pct+'%'; bar.style.background = pct===100 ? 'var(--leaf)' : 'var(--brand2)';
-
-  const shown = all.filter(t=> taskFilter==='all' ? true : taskFilter==='done' ? taskDoneOn(t,day) : !taskDoneOn(t,day));
-  const byOrder = (a,b)=> (a.priority-b.priority) || ((a.createdAt||0)-(b.createdAt||0));
-  const pending = shown.filter(t=>!taskDoneOn(t,day)).sort(byOrder);
-  const finished = shown.filter(t=>taskDoneOn(t,day)).sort(byOrder);
-
-  const list = document.getElementById('tasksList');
-  if(!shown.length){
-    list.innerHTML = `<p class="text-[12px] text-center py-8" style="color:var(--muted)">لا توجد مهام للعرض</p>`;
-    return;
-  }
-  let html = '';
-  if(pending.length){
-    if(finished.length) html += taskGroupHeader('المتبقية','var(--amber)',pending.length);
-    html += pending.map(t=>taskCard(t,day)).join('');
-  }
-  if(finished.length){
-    if(pending.length) html += taskGroupHeader('المنجزة','var(--leaf)',finished.length);
-    html += finished.map(t=>taskCard(t,day)).join('');
-  }
-  list.innerHTML = html;
-}
-
-function toggleTask(id){
-  const t = tasks.find(x=>x.id===id); if(!t) return;
-  const day = taskDay;
-  if(t.repeat==='daily'){
-    t.doneDates = t.doneDates || [];
-    if(t.doneDates.includes(day)) t.doneDates = t.doneDates.filter(d=>d!==day);
-    else t.doneDates.push(day);
-  } else {
-    t.doneAt = t.doneAt ? '' : day;
-  }
-  saveTasks(); renderTasks(); queueTaskOp({t:'s', id:t.id});
-}
-
-function openTaskSheet(){ document.getElementById('taskSheet').classList.remove('hidden'); requestAnimationFrame(()=>document.getElementById('taskSheetInner').classList.remove('translate-y-full')); }
-function closeTaskSheet(){ document.getElementById('taskSheetInner').classList.add('translate-y-full'); setTimeout(()=>document.getElementById('taskSheet').classList.add('hidden'),280); }
-
-function setTaskPrio(p){
-  document.getElementById('taskPriority').value = p;
-  document.querySelectorAll('.tp-btn').forEach(b=>{
-    const act = parseInt(b.dataset.p,10) === p;
-    b.style.background = act ? 'var(--brand)' : 'var(--chip)';
-    b.style.color = act ? '#fff' : 'var(--ink)';
-  });
-}
-
-function openNewTaskSheet(){
-  document.getElementById('taskForm').reset();
-  document.getElementById('taskId').value = '';
-  document.getElementById('taskDate').value = taskDay;
-  setTaskPrio(2);
-  document.getElementById('taskSheetTitle').innerText = 'مهمة جديدة';
-  document.getElementById('taskDeleteBtn').classList.add('hidden');
-  openTaskSheet();
-}
-
-function openEditTask(id){
-  const t = tasks.find(x=>x.id===id); if(!t) return;
-  document.getElementById('taskId').value = t.id;
-  document.getElementById('taskTitle').value = t.title || '';
-  setTaskPrio(t.priority || 2);
-  document.getElementById('taskDate').value = t.date || todayStr();
-  document.getElementById('taskRepeat').value = t.repeat || 'none';
-  document.getElementById('taskNote').value = t.note || '';
-  document.getElementById('taskSheetTitle').innerText = 'تعديل المهمة';
-  document.getElementById('taskDeleteBtn').classList.remove('hidden');
-  openTaskSheet();
-}
-
-function saveTask(ev){
-  ev.preventDefault();
-  const id = document.getElementById('taskId').value;
-  const title = document.getElementById('taskTitle').value.trim();
-  if(!title) return;
-  const priority = parseInt(document.getElementById('taskPriority').value,10) || 2;
-  const date = document.getElementById('taskDate').value || todayStr();
-  const repeat = document.getElementById('taskRepeat').value || 'none';
-  const note = document.getElementById('taskNote').value.trim();
-
-  let t = tasks.find(x=>x.id===id);
-  if(!t){
-    t = { id: 't_' + Date.now() + '_' + Math.floor(Math.random()*1000), createdAt: Date.now() };
-    tasks.push(t);
-  }
-  t.title = title; t.priority = priority; t.date = date; t.repeat = repeat; t.note = note;
-  saveTasks(); renderTasks(); closeTaskSheet();
-  queueTaskOp({t:'s', id:t.id});
-}
-
-function deleteTask(){
-  const id = document.getElementById('taskId').value;
-  if(!id) return;
-  if(!confirm('هل تريد حذف هذه المهمة؟')) return;
-  tasks = tasks.filter(x=>x.id!==id);
-  saveTasks(); renderTasks(); closeTaskSheet();
-  queueTaskOp({t:'d', id:id});
-}
-
-function clearDoneTasks(){
-  const doneList = tasks.filter(t=> t.repeat!=='daily' && !!t.doneAt);
-  if(!doneList.length) return alertCustom('لا توجد مهام منجزة غير متكررة لحذفها');
-  if(!confirm(`هل تريد حذف ${doneList.length} مهمة منجزة نهائياً؟`)) return;
-  doneList.forEach(t=>{ queueTaskOp({t:'d', id:t.id}); });
-  tasks = tasks.filter(t=> t.repeat==='daily' || !t.doneAt);
-  saveTasks(); renderTasks();
-}
-
-// ---- تهيئة التطبيق عند الفتح ----
-window.addEventListener('DOMContentLoaded', function(){
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('webAppUrlInput').value = WEB_APP_URL_FIXED;
   fillWalletSelects();
-  const savedRate = localStorage.getItem('pf_rate');
-  if(savedRate) document.getElementById('exchangeRateInput').value = savedRate;
-  if(WEB_APP_URL) document.getElementById('webAppUrlInput').value = WEB_APP_URL;
-  renderAll();
   initLock();
 });
 </script>
