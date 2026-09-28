@@ -309,15 +309,12 @@
 </div>
 
 <script>
-// ====== إعدادات ثابتة (اتغيّر هون مرة واحدة وبتشتغل على أي جهاز/متصفح بدون ما تحتاج تعيدها) ======
-// حط هون رابط الـ Web App تبعك من Google Apps Script (Deploy > Web app > Copy URL)
 const WEB_APP_URL_FIXED = "https://script.google.com/macros/s/AKfycbzgyo6niHCX5RFeLDMQymjmPnimF8ey7CgqIVbwUJjGqNAgJTcPT2vIgRyWnvSDhurChQ/exec";
-// رمز الدخول لم يعد مكتوباً هنا: صار محفوظاً على سيرفر Google (Script Properties) ويتحقق منه الباك ايند.
-// ===============================================================================================
 
 let AUTH_TOKEN = localStorage.getItem('pf_token') || '';
 let WEB_APP_URL = WEB_APP_URL_FIXED || localStorage.getItem('pf_webapp_url') || "";
 let entries = [];
+try{ entries = JSON.parse(localStorage.getItem('pf_entries_sync')) || []; }catch(e){ entries = []; }
 let wallets = JSON.parse(localStorage.getItem('pf_wallets') || '["نقدي","بطاقة بنكية"]');
 let barChartInstance = null, pieChartInstance = null;
 let listShown = 30;
@@ -389,14 +386,14 @@ function unlockApp(){
   document.getElementById('lockScreen').classList.add('hidden');
   document.getElementById('enterPin').value = '';
   document.getElementById('lockError').classList.add('hidden');
-  loadDataFromSheet(); loadTasksFromSheet();
+  fillWalletSelects(); renderAll(); loadDataFromSheet(); loadTasksFromSheet();
 }
 function initLock(){
   showLock();
   if(!AUTH_TOKEN) return;
   taskApi({action:'ping'}, function(res){
     if(res && res.result==='success' && res.op==='ping') unlockApp();
-    else if(!res) document.getElementById('lockScreen').classList.add('hidden'); // بدون اتصال: استخدم النسخة المحلية
+    else if(!res) document.getElementById('lockScreen').classList.add('hidden');
     else if(res.code!=='auth') authFail('الباك ايند غير محدّث: انشر كود Apps Script الجديد (New version).');
   });
 }
@@ -800,7 +797,7 @@ function taskApi(params, cb){
   document.body.appendChild(s);
 }
 function queueTaskOp(op){
-  taskOps = taskOps.filter(o=>!(o.id===op.id)); // آخر عملية لنفس المهمة تكفي
+  taskOps = taskOps.filter(o=>!(o.id===op.id));
   taskOps.push(op); saveOps(); flushTaskOps();
 }
 function flushTaskOps(cb){
@@ -835,7 +832,6 @@ function loadTasksFromSheet(){
       }
       const remote = res.tasks;
       const remoteIds = new Set(remote.map(t=>t.id));
-      // ترحيل لمرة واحدة: المهام المحلية القديمة غير الموجودة في الجدول
       if(!localStorage.getItem('pf_tasks_migrated')){
         const extra = tasks.filter(t=>!remoteIds.has(t.id));
         extra.forEach(t=>{ remote.push(t); taskOps.push({t:'s', id:t.id}); });
@@ -883,6 +879,7 @@ function taskCard(t,day){
     </div>
   </div>`;
 }
+
 function renderTasks(){
   const day = taskDay, today = todayStr();
   const d = new Date(day+'T12:00:00');
@@ -902,98 +899,119 @@ function renderTasks(){
   const byOrder = (a,b)=> (a.priority-b.priority) || ((a.createdAt||0)-(b.createdAt||0));
   const pending = shown.filter(t=>!taskDoneOn(t,day)).sort(byOrder);
   const finished = shown.filter(t=>taskDoneOn(t,day)).sort(byOrder);
+
+  const list = document.getElementById('tasksList');
+  if(!shown.length){
+    list.innerHTML = `<p class="text-[12px] text-center py-8" style="color:var(--muted)">لا توجد مهام للعرض</p>`;
+    return;
+  }
   let html = '';
-  [1,2,3].forEach(p=>{
-    const g = pending.filter(t=>+t.priority===p);
-    if(g.length) html += taskGroupHeader('أولوية '+PRIO[p].label, PRIO[p].color, g.length) + g.map(t=>taskCard(t,day)).join('');
-  });
-  if(finished.length) html += taskGroupHeader('منجزة','var(--leaf)',finished.length) + finished.map(t=>taskCard(t,day)).join('');
-  if(!html) html = `<p class="text-[12px] text-center py-10" style="color:var(--muted)">${total ? 'لا توجد مهام مطابقة للتصفية.' : 'لا توجد مهام لهذا اليوم. اضغط زر + لإضافة مهمة.'}</p>`;
-  document.getElementById('tasksList').innerHTML = html;
+  if(pending.length){
+    if(finished.length) html += taskGroupHeader('المتبقية','var(--amber)',pending.length);
+    html += pending.map(t=>taskCard(t,day)).join('');
+  }
+  if(finished.length){
+    if(pending.length) html += taskGroupHeader('المنجزة','var(--leaf)',finished.length);
+    html += finished.map(t=>taskCard(t,day)).join('');
+  }
+  list.innerHTML = html;
 }
+
 function toggleTask(id){
   const t = tasks.find(x=>x.id===id); if(!t) return;
   const day = taskDay;
   if(t.repeat==='daily'){
     t.doneDates = t.doneDates || [];
-    const i = t.doneDates.indexOf(day);
-    if(i>-1) t.doneDates.splice(i,1); else t.doneDates.push(day);
-  } else { t.doneAt = t.doneAt ? '' : day; }
-  saveTasks(); queueTaskOp({t:'s', id:t.id}); renderTasks();
-  const all = tasks.filter(x=>taskVisibleOn(x,day));
-  if(all.length && taskDoneOn(t,day) && all.every(x=>taskDoneOn(x,day))) alertCustom('أحسنت! أنجزت جميع مهام هذا اليوم');
+    if(t.doneDates.includes(day)) t.doneDates = t.doneDates.filter(d=>d!==day);
+    else t.doneDates.push(day);
+  } else {
+    t.doneAt = t.doneAt ? '' : day;
+  }
+  saveTasks(); renderTasks(); queueTaskOp({t:'s', id:t.id});
 }
+
 function openTaskSheet(){ document.getElementById('taskSheet').classList.remove('hidden'); requestAnimationFrame(()=>document.getElementById('taskSheetInner').classList.remove('translate-y-full')); }
 function closeTaskSheet(){ document.getElementById('taskSheetInner').classList.add('translate-y-full'); setTimeout(()=>document.getElementById('taskSheet').classList.add('hidden'),280); }
+
 function setTaskPrio(p){
   document.getElementById('taskPriority').value = p;
-  document.querySelectorAll('.tp-btn').forEach(b=>{ const a=+b.dataset.p===p; b.style.background=a?PRIO[p].color:'var(--chip)'; b.style.color=a?'#fff':'var(--ink)'; });
+  document.querySelectorAll('.tp-btn').forEach(b=>{
+    const act = parseInt(b.dataset.p,10) === p;
+    b.style.background = act ? 'var(--brand)' : 'var(--chip)';
+    b.style.color = act ? '#fff' : 'var(--ink)';
+  });
 }
+
 function openNewTaskSheet(){
   document.getElementById('taskForm').reset();
   document.getElementById('taskId').value = '';
   document.getElementById('taskDate').value = taskDay;
-  document.getElementById('taskRepeat').value = 'none';
   setTaskPrio(2);
   document.getElementById('taskSheetTitle').innerText = 'مهمة جديدة';
   document.getElementById('taskDeleteBtn').classList.add('hidden');
   openTaskSheet();
 }
+
 function openEditTask(id){
   const t = tasks.find(x=>x.id===id); if(!t) return;
   document.getElementById('taskId').value = t.id;
-  document.getElementById('taskTitle').value = t.title;
-  document.getElementById('taskDate').value = t.date;
+  document.getElementById('taskTitle').value = t.title || '';
+  setTaskPrio(t.priority || 2);
+  document.getElementById('taskDate').value = t.date || todayStr();
   document.getElementById('taskRepeat').value = t.repeat || 'none';
   document.getElementById('taskNote').value = t.note || '';
-  setTaskPrio(+t.priority || 2);
   document.getElementById('taskSheetTitle').innerText = 'تعديل المهمة';
   document.getElementById('taskDeleteBtn').classList.remove('hidden');
   openTaskSheet();
 }
+
 function saveTask(ev){
   ev.preventDefault();
-  const title = document.getElementById('taskTitle').value.trim();
-  if(!title){ alertCustom('اكتب عنوان المهمة'); return; }
   const id = document.getElementById('taskId').value;
-  const data = { title, priority: parseInt(document.getElementById('taskPriority').value,10)||2, date: document.getElementById('taskDate').value || todayStr(), repeat: document.getElementById('taskRepeat').value, note: document.getElementById('taskNote').value.trim() };
-  let savedId = id;
-  if(id){ const t = tasks.find(x=>x.id===id); if(t) Object.assign(t,data); }
-  else { savedId = 't'+Date.now()+Math.floor(Math.random()*1000); tasks.push(Object.assign({ id:savedId, createdAt:Date.now(), doneAt:'', doneDates:[] }, data)); taskDay = data.date; }
-  saveTasks(); queueTaskOp({t:'s', id:savedId}); closeTaskSheet(); renderTasks();
-  alertCustom(id ? 'تم حفظ التعديلات' : 'تمت إضافة المهمة');
+  const title = document.getElementById('taskTitle').value.trim();
+  if(!title) return;
+  const priority = parseInt(document.getElementById('taskPriority').value,10) || 2;
+  const date = document.getElementById('taskDate').value || todayStr();
+  const repeat = document.getElementById('taskRepeat').value || 'none';
+  const note = document.getElementById('taskNote').value.trim();
+
+  let t = tasks.find(x=>x.id===id);
+  if(!t){
+    t = { id: 't_' + Date.now() + '_' + Math.floor(Math.random()*1000), createdAt: Date.now() };
+    tasks.push(t);
+  }
+  t.title = title; t.priority = priority; t.date = date; t.repeat = repeat; t.note = note;
+  saveTasks(); renderTasks(); closeTaskSheet();
+  queueTaskOp({t:'s', id:t.id});
 }
+
 function deleteTask(){
-  const id = document.getElementById('taskId').value; const t = tasks.find(x=>x.id===id); if(!t) return;
-  if(!confirm(t.repeat==='daily' ? 'هذه مهمة متكررة يومياً، سيتم حذفها من كل الأيام. هل تريد المتابعة؟' : 'هل تريد حذف هذه المهمة؟')) return;
-  tasks = tasks.filter(x=>x.id!==id); saveTasks(); queueTaskOp({t:'d', id}); closeTaskSheet(); renderTasks(); alertCustom('تم حذف المهمة');
+  const id = document.getElementById('taskId').value;
+  if(!id) return;
+  if(!confirm('هل تريد حذف هذه المهمة؟')) return;
+  tasks = tasks.filter(x=>x.id!==id);
+  saveTasks(); renderTasks(); closeTaskSheet();
+  queueTaskOp({t:'d', id:id});
 }
+
 function clearDoneTasks(){
-  const n = tasks.filter(t=>t.repeat!=='daily' && t.doneAt).length;
-  if(!n){ alertCustom('لا توجد مهام منجزة لحذفها'); return; }
-  if(!confirm('سيتم حذف '+n+' مهمة منجزة نهائياً. هل تريد المتابعة؟')) return;
-  const removed = tasks.filter(t=>(t.repeat!=='daily' && t.doneAt));
-  tasks = tasks.filter(t=>!(t.repeat!=='daily' && t.doneAt)); saveTasks();
-  removed.forEach(t=>queueTaskOp({t:'d', id:t.id})); renderTasks();
+  const doneList = tasks.filter(t=> t.repeat!=='daily' && !!t.doneAt);
+  if(!doneList.length) return alertCustom('لا توجد مهام منجزة غير متكررة لحذفها');
+  if(!confirm(`هل تريد حذف ${doneList.length} مهمة منجزة نهائياً؟`)) return;
+  doneList.forEach(t=>{ queueTaskOp({t:'d', id:t.id}); });
+  tasks = tasks.filter(t=> t.repeat==='daily' || !t.doneAt);
+  saveTasks(); renderTasks();
 }
-document.addEventListener('visibilitychange', ()=>{
-  if(!document.hidden && lastToday!==todayStr()){ if(taskDay===lastToday) taskDay = todayStr(); lastToday = todayStr(); renderTasks(); }
-});
 
-
-window.onload = function(){
-  initLock();
-  document.getElementById('entryDate').value = todayStr();
-  if(WEB_APP_URL_FIXED){ document.getElementById('urlFixedNote').innerText = 'هذا الرابط محدد داخل ملف الموقع، وشغّال تلقائياً على أي جهاز.'; }
-  document.getElementById('pinFixedNote').innerText = 'الرمز محفوظ على سيرفر Google وليس داخل ملف الموقع، وهو نفسه على أي جهاز.';
-  document.getElementById('webAppUrlInput').value = WEB_APP_URL;
-  document.getElementById('exchangeRateInput').value = localStorage.getItem('pf_rate') || '15000';
+// ---- تهيئة التطبيق عند الفتح ----
+window.addEventListener('DOMContentLoaded', function(){
   fillWalletSelects();
-  updateCategories();
-  try{ entries = JSON.parse(localStorage.getItem('pf_entries_sync')) || []; }catch(e){ entries=[]; }
+  const savedRate = localStorage.getItem('pf_rate');
+  if(savedRate) document.getElementById('exchangeRateInput').value = savedRate;
+  if(WEB_APP_URL) document.getElementById('webAppUrlInput').value = WEB_APP_URL;
   renderAll();
-  setTaskFilter('all');
-};
+  initLock();
+});
 </script>
 </body>
 </html>
